@@ -49,6 +49,7 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>('welcome');
 	const [isAuthBootstrapDone, setIsAuthBootstrapDone] = useState(false);
 	const [currentUser, setCurrentUser] = useState<User | null>(null);
+	const [pendingInviteCode, setPendingInviteCode] = useState<string | null>(null);
 	const [monsterName, setMonsterName] = useState('');
 	const [selectedAccessory, setSelectedAccessory] = useState<AccessoryKey | undefined>(undefined);
 	const [coins] = useState(0);
@@ -189,7 +190,10 @@ export default function App() {
 		return (
 			<ChildFamilyCodeScreen
 				onBack={() => setScreen('welcome')}
-				onContinue={() => setScreen('childProfileSetup')}
+				onContinue={(code?: string) => {
+					setPendingInviteCode(code ?? null);
+					setScreen('childProfileSetup');
+				}}
 			/>
 		);
 	}
@@ -199,6 +203,7 @@ export default function App() {
 			<ChildProfileSetupScreen
 				onBack={() => setScreen('childFamilyCode')}
 				onContinue={() => setScreen('childHowItWorks')}
+				inviteCode={pendingInviteCode}
 			/>
 		);
 	}

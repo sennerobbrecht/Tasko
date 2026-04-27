@@ -297,3 +297,15 @@ drop policy if exists team_invites_write on public.team_invites;
 create policy team_invites_write on public.team_invites
 for all using (public.has_family_write_access(family_id))
 with check (public.has_family_write_access(family_id));
+
+-- Public function to look up a team invite by code (runs with definer privileges so unauthenticated users can redeem)
+create or replace function public.get_team_invite_by_code(p_code text)
+returns table(id uuid, family_id uuid, code text, role text, expires_at timestamptz, created_by_user_id uuid, used_at timestamptz, used_by_user_id uuid, created_at timestamptz)
+language sql
+security definer
+as $$
+  select id, family_id, code, role, expires_at, created_by_user_id, used_at, used_by_user_id, created_at
+  from public.team_invites
+  where code = p_code
+  limit 1;
+$$;

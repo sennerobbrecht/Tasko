@@ -7,12 +7,13 @@ import colors from '../theme/colors';
 
 type ChildFamilyCodeScreenProps = {
   onBack?: () => void;
-  onContinue?: () => void;
+  onContinue?: (code?: string) => void;
 };
 
 export default function ChildFamilyCodeScreen({ onBack, onContinue }: ChildFamilyCodeScreenProps) {
   const [cameraVisible, setCameraVisible] = useState(false);
   const [permission, requestPermission] = useCameraPermissions();
+  const [codeInput, setCodeInput] = useState('');
 
   const openCamera = async () => {
     if (!permission?.granted) {
@@ -70,10 +71,10 @@ export default function ChildFamilyCodeScreen({ onBack, onContinue }: ChildFamil
         <Text style={styles.sectionHint}>Vul de code van je gezin in</Text>
 
         <View style={styles.inputShell}>
-          <TextInput placeholder="00-00-00-00" placeholderTextColor="#B8C7D4" style={styles.input} />
+          <TextInput placeholder="Vul je uitnodigingscode in" placeholderTextColor="#B8C7D4" style={styles.input} value={codeInput} onChangeText={setCodeInput} autoCapitalize="characters" />
         </View>
 
-        <TouchableOpacity activeOpacity={0.9} onPress={onContinue} style={styles.primaryButton}>
+        <TouchableOpacity activeOpacity={0.9} onPress={() => onContinue?.(codeInput.trim())} style={styles.primaryButton}>
           <Text style={styles.primaryText}>Ga verder</Text>
         </TouchableOpacity>
       </ScrollView>

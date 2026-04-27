@@ -3,12 +3,19 @@ import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 
 
 import colors from '../theme/colors';
 
+import { useState } from 'react';
+import { Alert } from 'react-native';
+import { createChildFromInvite } from '../services/families';
+
 type ChildProfileSetupScreenProps = {
   onBack?: () => void;
   onContinue?: () => void;
+  inviteCode?: string | null;
 };
 
-export default function ChildProfileSetupScreen({ onBack, onContinue }: ChildProfileSetupScreenProps) {
+export default function ChildProfileSetupScreen({ onBack, onContinue, inviteCode }: ChildProfileSetupScreenProps) {
+  const [username, setUsername] = useState('');
+  const [creating, setCreating] = useState(false);
   return (
     <View style={styles.screen}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
@@ -36,13 +43,34 @@ export default function ChildProfileSetupScreen({ onBack, onContinue }: ChildPro
         </View>
 
         <View style={styles.inputShell}>
-          <TextInput placeholder="sennero2005" placeholderTextColor="#B8C7D4" style={styles.input} />
+          <TextInput placeholder="sennero2005" placeholderTextColor="#B8C7D4" style={styles.input} value={username} onChangeText={setUsername} />
         </View>
 
         <Text style={styles.helper}>Deze naam zien anderen in je gezin</Text>
 
-        <TouchableOpacity activeOpacity={0.9} onPress={onContinue} style={styles.primaryButton}>
-          <Text style={styles.primaryText}>Ga verder</Text>
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPress={async () => {
+            if (!inviteCode) {
+              Alert.alert('Fout', 'Geen uitnodigingscode gevonden. Ga terug en voer de code in.');
+              return;
+            }
+            if (!username || username.trim().length === 0) {
+              Alert.alert('Fout', 'Kies een gebruikersnaam.');
+              return;
+            }
+            setCreating(true);
+            const { data, error } = await createChildFromInvite(inviteCode, username.trim());
+            setCreating(false);
+            if (error) {
+              Alert.alert('Fout', error.message || 'Kon kind niet aanmaken.');
+              return;
+            }
+            onContinue?.();
+          }}
+          style={styles.primaryButton}
+        >
+          <Text style={styles.primaryText}>{creating ? 'Bezig…' : 'Ga verder'}</Text>
         </TouchableOpacity>
       </ScrollView>
 

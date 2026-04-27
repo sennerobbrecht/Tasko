@@ -102,3 +102,78 @@ export async function ensureFamilyForCurrentUser(defaultFamilyName = 'Mijn Gezin
 
   return { error: null, family: insertedFamily as Family };
 }
+
+export async function getFamilyChildren(familyId?: string) {
+  const { data: authData, error: authError } = await supabase.auth.getUser();
+  if (authError || !authData.user) {
+    return { data: null, error: authError ?? new Error('Geen ingelogde gebruiker gevonden.') };
+  }
+
+  let targetFamilyId = familyId;
+  if (!targetFamilyId) {
+    const current = await getCurrentFamily();
+    if (current.error) return { data: null, error: current.error };
+    if (!current.family) return { data: [], error: null };
+    targetFamilyId = current.family.id;
+  }
+
+  const { data, error } = await supabase.from('child_profiles').select('id,display_name,avatar_seed,birth_year').eq('family_id', targetFamilyId);
+  return { data, error };
+}
+
+export async function createTeamInviteForCurrentFamily({ role = 'parent', expiresInDays = 7 } : { role?: string; expiresInDays?: number } = {}) {
+  const { family, error: famErr } = await getCurrentFamily();
+  if (famErr) return { data: null, error: famErr };
+  if (!family) return { data: null, error: new Error('Geen gezin gevonden voor huidige gebruiker') };
+
+  const codeChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let code = '';
+  for (let i = 0; i < 10; i++) code += codeChars[Math.floor(Math.random() * codeChars.length)];
+
+  const expires_at = new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1000).toISOString();
+
+  const { data, error } = await supabase
+    .from('team_invites')
+    .insert({ family_id: family.id, code, role, expires_at, created_by_user_id: (await supabase.auth.getUser()).data?.user?.id })
+    .select('code')
+    .single();
+
+  return { data, error };
+}
+
+export async function acceptTeamInvite(code: string) {
+  // find invite via RPC (bypasses RLS for lookup)
+  const { data: inviteRows, error: rpcErr } = await supabase.rpc('get_team_invite_by_code', { p_code: code });
+  if (rpcErr) return { error: rpcErr, success: false };
+  if (!inviteRows || (Array.isArray(inviteRows) && inviteRows.length === 0)) return { error: new Error('Ongeldige uitnodigingscode'), success: false };
+
+  const invite = Array.isArray(inviteRows) ? inviteRows[0] as any : (inviteRows as any);
+  if (invite.used_at) return { error: new Error('Uitnodiging is al gebruikt'), success: false };
+  if (new Date(invite.expires_at) < new Date()) return { error: new Error('Uitnodiging is verlopen'), success: false };
+
+  const { data: authData, error: authErr } = await supabase.auth.getUser();
+  if (authErr || !authData.user) return { error: authErr ?? new Error('Geen ingelogde gebruiker'), success: false };
+
+  const userId = authData.user.id;
+
+  // upsert family_members
+  const { error: upsertErr } = await supabase.from('family_members').upsert({ family_id: invite.family_id, user_id: userId, role: invite.role }, { onConflict: 'family_id,user_id' });
+  if (upsertErr) return { error: upsertErr, success: false };
+
+  // mark invite used
+  const { error: markErr } = await supabase.from('team_invites').update({ used_at: new Date().toISOString(), used_by_user_id: userId }).eq('id', invite.id);
+  if (markErr) return { error: markErr, success: false };
+
+  return { error: null, success: true };
+}
+
+export async function createChildFromInvite(code: string, displayName: string, birthYear?: number) {
+  const { data: inviteRows, error: rpcErr } = await supabase.rpc('get_team_invite_by_code', { p_code: code });
+  if (rpcErr) return { error: rpcErr, data: null };
+  if (!inviteRows || (Array.isArray(inviteRows) && inviteRows.length === 0)) return { error: new Error('Ongeldige code'), data: null };
+  const invite = Array.isArray(inviteRows) ? inviteRows[0] as any : (inviteRows as any);
+  if (new Date(invite.expires_at) < new Date()) return { error: new Error('Code is verlopen'), data: null };
+
+  const { data, error } = await supabase.from('child_profiles').insert({ family_id: invite.family_id, display_name: displayName, birth_year: birthYear ?? null }).select('id,display_name').single();
+  return { error, data };
+}

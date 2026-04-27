@@ -1,11 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { StatusBar } from 'expo-status-bar';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View, Alert, TextInput, Linking } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 
 import colors from '../theme/colors';
 import { getCurrentFamilyRoutines, type RoutineSummary } from '../services/routines';
+import { getCurrentFamily, getFamilyChildren, createTeamInviteForCurrentFamily } from '../services/families';
+import { supabase } from '../lib/supabase';
+import * as Clipboard from 'expo-clipboard';
+import { changePassword } from '../services/auth';
 
 type User = {
   id: string;
@@ -49,6 +53,10 @@ export default function ParentDashboardScreen({ currentUser, onLogout }: ParentD
   const [dbRoutines, setDbRoutines] = useState<RoutineSummary[]>([]);
   const [routinesError, setRoutinesError] = useState<string | null>(null);
   const [routinesLoading, setRoutinesLoading] = useState(true);
+  const [familyId, setFamilyId] = useState<string | null>(null);
+  const [children, setChildren] = useState<Array<{ id: string; display_name: string }>>([]);
+  const [childrenLoading, setChildrenLoading] = useState(true);
+  const [inviteCodeDb, setInviteCodeDb] = useState<string | null>(null);
   const [routineTasks, setRoutineTasks] = useState<RoutineTask[]>([
     { id: 'wake-up', label: 'Opstaan', done: false },
     { id: 'breakfast', label: 'Ontbijten', done: false },
@@ -58,6 +66,11 @@ export default function ParentDashboardScreen({ currentUser, onLogout }: ParentD
     { id: 'dinner', label: 'Avondeten', done: false },
     { id: 'bed', label: 'Naar bed', done: false },
   ]);
+  const [showFAQModal, setShowFAQModal] = useState(false);
+  const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [changingPassword, setChangingPassword] = useState(false);
 
   const selectedTemplate = useMemo(
     () => TEMPLATES.find((template) => template.id === selectedTemplateId) ?? TEMPLATES[0],
@@ -88,10 +101,102 @@ export default function ParentDashboardScreen({ currentUser, onLogout }: ParentD
 
     fetchRoutines();
 
+    const fetchFamily = async () => {
+      const { family, error } = await getCurrentFamily();
+      if (!isMounted) return;
+      if (family && family.id) setFamilyId(family.id);
+    };
+
+    fetchFamily();
+
     return () => {
       isMounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    const loadChildren = async () => {
+      setChildrenLoading(true);
+      const { data, error } = await getFamilyChildren(familyId ?? undefined);
+      if (!mounted) return;
+      if (error) {
+        setChildren([]);
+      } else {
+        setChildren(data ?? []);
+      }
+      setChildrenLoading(false);
+    };
+
+    loadChildren();
+    let subscription: any;
+    if (familyId) {
+      subscription = supabase
+        .channel('child-profiles')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'child_profiles', filter: `family_id=eq.${familyId}` }, (payload) => {
+          const newChild = payload.new as any;
+          setChildren((prev) => {
+            if (prev.find((p) => p.id === newChild.id)) return prev;
+            return [...prev, { id: newChild.id, display_name: newChild.display_name }];
+          });
+        })
+        .subscribe();
+    }
+
+    return () => { mounted = false; if (subscription) supabase.removeChannel(subscription); };
+  }, [familyId]);
+
+  useEffect(() => {
+    let mounted = true;
+    if (!showInviteScreen) return;
+    const createInvite = async () => {
+      const { data, error } = await createTeamInviteForCurrentFamily();
+      if (!mounted) return;
+      if (!error && data && data.code) setInviteCodeDb(data.code);
+    };
+    createInvite();
+    return () => { mounted = false; };
+  }, [showInviteScreen]);
+
+  function generateInviteCode(userId?: string) {
+    if (userId) {
+      const cleaned = userId.replace(/-/g, '').toUpperCase();
+      return cleaned.slice(0, 10).padEnd(10, 'X');
+    }
+
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let out = '';
+    for (let i = 0; i < 10; i++) out += chars[Math.floor(Math.random() * chars.length)];
+    return out;
+  }
+
+  async function handleChangePassword() {
+    if (newPassword.trim() !== confirmNewPassword.trim()) {
+      Alert.alert('Fout', 'Wachtwoorden komen niet overeen.');
+      return;
+    }
+    if (newPassword.length < 6) {
+      Alert.alert('Fout', 'Wachtwoord moet minstens 6 karakters hebben.');
+      return;
+    }
+
+    setChangingPassword(true);
+    try {
+      const { data, error } = await changePassword(newPassword);
+      if (error) {
+        Alert.alert('Fout', error.message || 'Kon wachtwoord niet wijzigen.');
+      } else {
+        Alert.alert('Klaar', 'Wachtwoord succesvol gewijzigd.');
+        setShowChangePasswordModal(false);
+        setNewPassword('');
+        setConfirmNewPassword('');
+      }
+    } catch (e) {
+      Alert.alert('Fout', 'Er is iets misgegaan.');
+    } finally {
+      setChangingPassword(false);
+    }
+  }
 
   if (showVisibilitySettings) {
     return (
@@ -200,7 +305,7 @@ export default function ParentDashboardScreen({ currentUser, onLogout }: ParentD
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Wachtwoord & Beveiliging</Text>
             
-            <Pressable style={[styles.actionButton, styles.actionSecondary]}>
+            <Pressable onPress={() => setShowChangePasswordModal(true)} style={[styles.actionButton, styles.actionSecondary]}>
               <Text style={styles.actionSecondaryText}>Wachtwoord wijzigen</Text>
             </Pressable>
           </View>
@@ -208,9 +313,9 @@ export default function ParentDashboardScreen({ currentUser, onLogout }: ParentD
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Hulp & Support</Text>
             
-            <MenuRow label="Veelgestelde vragen" />
-            <MenuRow label="Contact Support" />
-            <MenuRow label="Verzend Feedback" />
+            <MenuRow label="Veelgestelde vragen" onPress={() => setShowFAQModal(true)} />
+            <MenuRow label="Contact Support" onPress={() => Linking.openURL('mailto:support@tasko.app')} />
+            <MenuRow label="Verzend Feedback" onPress={() => Linking.openURL('mailto:feedback@tasko.app?subject=Tasko%20Feedback')} />
           </View>
 
           <View style={styles.card}>
@@ -253,19 +358,34 @@ export default function ParentDashboardScreen({ currentUser, onLogout }: ParentD
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Jouw Kinderen</Text>
             <Text style={styles.subtleText}>Kids die je beheert</Text>
-            
-            <View style={styles.memberItem}>
-              <Text style={styles.memberName}>👧 Emma</Text>
-              <Text style={styles.memberEmail}>Voortgang: 80%</Text>
-              <Text style={styles.memberRole}>Actief</Text>
-            </View>
 
-            <Pressable onPress={() => {
-              setShowFamilyTeamSettings(false);
-              setShowInviteScreen(true);
-            }} style={[styles.actionButton, styles.actionSecondary]}>
-              <Text style={styles.actionSecondaryText}>+ Kind toevoegen</Text>
-            </Pressable>
+            {childrenLoading ? (
+              <Text style={styles.supportText}>Laden…</Text>
+            ) : children.length === 0 ? (
+              <View>
+                <Text style={{ marginBottom: 8, color: '#6C7A8E' }}>Er zijn nog geen kinderen gekoppeld aan dit gezin.</Text>
+                <Pressable onPress={() => { setShowFamilyTeamSettings(false); setShowInviteScreen(true); }} style={[styles.actionButton, styles.actionPrimary]}>
+                  <Text style={styles.actionPrimaryText}>Voeg een kind toe</Text>
+                </Pressable>
+              </View>
+            ) : (
+              children.map((c) => (
+                <View key={c.id} style={styles.memberItem}>
+                  <Text style={styles.memberName}>👧 {c.display_name}</Text>
+                  <Text style={styles.memberEmail}>Voortgang: 0%</Text>
+                  <Text style={styles.memberRole}>Actief</Text>
+                </View>
+              ))
+            )}
+
+            {children.length > 0 && (
+              <>
+                <View style={{ height: 8 }} />
+                <Pressable onPress={() => { setShowFamilyTeamSettings(false); setShowInviteScreen(true); }} style={[styles.actionButton, styles.actionSecondary]}>
+                  <Text style={styles.actionSecondaryText}>+ Kind toevoegen</Text>
+                </Pressable>
+              </>
+            )}
           </View>
 
           <View style={styles.card}>
@@ -282,7 +402,8 @@ export default function ParentDashboardScreen({ currentUser, onLogout }: ParentD
   }
 
   if (showInviteScreen) {
-    const inviteCode = `TASKO-${currentUser?.id?.slice(0, 8).toUpperCase() || 'XXXX'}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+    const inviteCode = inviteCodeDb ?? generateInviteCode(familyId ?? currentUser?.id);
+    const inviteLink = `tasko://invite?code=${inviteCode}`;
     
     return (
       <View style={styles.screen}>
@@ -299,7 +420,7 @@ export default function ParentDashboardScreen({ currentUser, onLogout }: ParentD
             <Text style={styles.cardTitle}>Scan de QR Code</Text>
             <View style={styles.qrFrame}>
               <QRCode
-                value={inviteCode}
+                value={inviteLink}
                 size={200}
                 color="black"
                 backgroundColor="white"
@@ -315,10 +436,20 @@ export default function ParentDashboardScreen({ currentUser, onLogout }: ParentD
             </View>
 
             <View style={styles.inlineActions}>
-              <Pressable style={[styles.actionButton, styles.actionPrimary]}>
+              <Pressable
+                onPress={async () => {
+                  try {
+                    await Clipboard.setStringAsync(inviteCode);
+                    Alert.alert('Gekopieerd', 'De uitnodigingscode is gekopieerd naar het klembord.');
+                  } catch (e) {
+                    Alert.alert('Fout', 'Kon de code niet kopiëren.');
+                  }
+                }}
+                style={[styles.actionButton, styles.actionPrimary]}
+              >
                 <Text style={styles.actionPrimaryText}>Kopieer Code</Text>
               </Pressable>
-              <Pressable style={[styles.actionButton, styles.actionSecondary]}>
+              <Pressable onPress={() => Linking.openURL(inviteLink)} style={[styles.actionButton, styles.actionSecondary]}>
                 <Text style={styles.actionSecondaryText}>Deel</Text>
               </Pressable>
             </View>
@@ -592,6 +723,63 @@ export default function ParentDashboardScreen({ currentUser, onLogout }: ParentD
             <Pressable onPress={() => setShowReadOnlyModal(false)} style={styles.generateButton}>
               <Text style={styles.generateButtonText}>Link genereren</Text>
             </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal transparent visible={showFAQModal} animationType="slide" onRequestClose={() => setShowFAQModal(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCardLarge}>
+            <Text style={styles.modalTitle}>Veelgestelde vragen</Text>
+            <ScrollView style={{ maxHeight: 360 }}>
+              <Text style={styles.faqQuestion}>Hoe voeg ik een kind toe?</Text>
+              <Text style={styles.faqAnswer}>Gebruik 'Invite to Team' om een ouder of begeleider uit te nodigen. De ander kan de uitnodiging gebruiken om gekoppeld te worden.</Text>
+
+              <Text style={styles.faqQuestion}>Wat doet 'Visibility'?</Text>
+              <Text style={styles.faqAnswer}>Je bepaalt welke informatie teamleden kunnen zien, zoals voortgang en activiteiten.</Text>
+
+              <Text style={styles.faqQuestion}>Kan ik mijn wachtwoord wijzigen?</Text>
+              <Text style={styles.faqAnswer}>Ja — kies 'Wachtwoord wijzigen' in Account & Support en voer een nieuw wachtwoord in.</Text>
+            </ScrollView>
+
+            <Pressable onPress={() => setShowFAQModal(false)} style={styles.generateButton}>
+              <Text style={styles.generateButtonText}>Sluiten</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal transparent visible={showChangePasswordModal} animationType="slide" onRequestClose={() => setShowChangePasswordModal(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCardLarge}>
+            <Text style={styles.modalTitle}>Wachtwoord wijzigen</Text>
+            <Text style={styles.modalSubtitle}>Voer een nieuw wachtwoord in</Text>
+
+            <TextInput
+              placeholder="Nieuw wachtwoord"
+              placeholderTextColor="#B8C7D4"
+              secureTextEntry
+              style={styles.modalInput}
+              value={newPassword}
+              onChangeText={setNewPassword}
+            />
+            <TextInput
+              placeholder="Bevestig nieuw wachtwoord"
+              placeholderTextColor="#B8C7D4"
+              secureTextEntry
+              style={styles.modalInput}
+              value={confirmNewPassword}
+              onChangeText={setConfirmNewPassword}
+            />
+
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <Pressable onPress={() => setShowChangePasswordModal(false)} style={[styles.actionButton, styles.actionSecondary]}>
+                <Text style={styles.actionSecondaryText}>Annuleer</Text>
+              </Pressable>
+              <Pressable onPress={handleChangePassword} style={[styles.actionButton, styles.actionPrimary]}>
+                <Text style={styles.actionPrimaryText}>{changingPassword ? 'Bezig...' : 'Opslaan'}</Text>
+              </Pressable>
+            </View>
           </View>
         </View>
       </Modal>
@@ -1346,6 +1534,15 @@ const styles = StyleSheet.create({
     borderColor: '#DAEAF0',
     gap: 12,
   },
+  modalCardLarge: {
+    backgroundColor: colors.white,
+    borderRadius: 20,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#DAEAF0',
+    gap: 12,
+    maxHeight: 520,
+  },
   modalTitle: {
     color: colors.textStrong,
     fontSize: 22,
@@ -1393,5 +1590,26 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontWeight: '800',
     fontSize: 16,
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: '#E1ECF0',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginTop: 10,
+    marginBottom: 6,
+    backgroundColor: '#FAFEFF',
+  },
+  faqQuestion: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: colors.textStrong,
+    marginTop: 12,
+  },
+  faqAnswer: {
+    fontSize: 13,
+    color: '#6C7A8E',
+    marginTop: 6,
   },
 });
