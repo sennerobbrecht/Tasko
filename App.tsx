@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import ParentAccountScreen from './src/screens/ParentAccountScreen';
 import WelcomeScreen from './src/screens/WelcomeScreen';
@@ -15,6 +15,9 @@ import ChildRewardsShopScreen from './src/screens/ChildRewardsShopScreen';
 import ChildAchievementsScreen from './src/screens/ChildAchievementsScreen';
 import ChildFocusTimeScreen from './src/screens/ChildFocusTimeScreen';
 import ChildMoodScreen from './src/screens/ChildMoodScreen';
+import ParentDashboardScreen from './src/screens/ParentDashboardScreen';
+import { getSessionUser, signInParent, signOutCurrentUser, signUpParent } from './src/services/auth';
+import { ensureFamilyForCurrentUser } from './src/services/families';
 import type { AccessoryKey } from './src/components/MonsterPreview';
 
 type Screen =
@@ -32,10 +35,12 @@ type Screen =
   | 'childRewardsShop'
   | 'childAchievements'
   | 'childFocusTime'
-  | 'childMood';
+	| 'childMood'
+	| 'parentDashboard';
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>('welcome');
+	const [isAuthBootstrapDone, setIsAuthBootstrapDone] = useState(false);
 	const [monsterName, setMonsterName] = useState('');
 	const [selectedAccessory, setSelectedAccessory] = useState<AccessoryKey | undefined>(undefined);
 	const [coins] = useState(0);
@@ -43,6 +48,38 @@ export default function App() {
 	const [streakDays] = useState(0);
 	const [tasksDone] = useState(0);
 	const [badgesUnlocked] = useState(0);
+
+	useEffect(() => {
+		let isMounted = true;
+
+		const bootstrap = async () => {
+			const user = await getSessionUser();
+			if (!isMounted) {
+				return;
+			}
+
+			if (user) {
+				await ensureFamilyForCurrentUser();
+				if (isMounted) {
+					setScreen('parentDashboard');
+				}
+			}
+
+			if (isMounted) {
+				setIsAuthBootstrapDone(true);
+			}
+		};
+
+		bootstrap();
+
+		return () => {
+			isMounted = false;
+		};
+	}, []);
+
+	if (!isAuthBootstrapDone) {
+		return null;
+	}
 
 	if (screen === 'childHome') {
 		return (
@@ -92,7 +129,16 @@ export default function App() {
 				onBack={() => setScreen('welcome')}
 				onForgotPassword={() => setScreen('forgotPassword')}
 				onRegister={() => setScreen('parentAccount')}
-				onSubmit={() => setScreen('childFamilyCode')}
+				onSubmit={async ({ email, password }) => {
+					const { error } = await signInParent(email, password);
+					if (error) {
+						return error.message;
+					}
+
+					await ensureFamilyForCurrentUser();
+					setScreen('parentDashboard');
+					return null;
+				}}
 			/>
 		);
 	}
@@ -166,7 +212,37 @@ export default function App() {
 	}
 
 	if (screen === 'parentAccount') {
-		return <ParentAccountScreen onBack={() => setScreen('welcome')} onLogin={() => setScreen('login')} />;
+		return (
+			<ParentAccountScreen
+				onBack={() => setScreen('welcome')}
+				onLogin={() => setScreen('login')}
+				onSubmit={async ({ name, email, password, confirmPassword }) => {
+					if (password.trim() !== confirmPassword.trim()) {
+						return 'Wachtwoorden komen niet overeen.';
+					}
+
+					const { error, needsEmailConfirmation } = await signUpParent(name, email, password);
+					if (error) {
+						return error.message;
+					}
+
+					if (needsEmailConfirmation) {
+						return 'Controleer je e-mail om je account te bevestigen en log daarna in.';
+					}
+
+					await ensureFamilyForCurrentUser();
+					setScreen('parentDashboard');
+					return null;
+				}}
+			/>
+		);
+	}
+
+	if (screen === 'parentDashboard') {
+		return <ParentDashboardScreen onLogout={async () => {
+			await signOutCurrentUser();
+			setScreen('welcome');
+		}} />;
 	}
 
 	return (

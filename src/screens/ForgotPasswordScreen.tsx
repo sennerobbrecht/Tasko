@@ -1,6 +1,9 @@
+import { useState } from 'react';
+
 import { StatusBar } from 'expo-status-bar';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { requestPasswordReset } from '../services/auth';
 import colors from '../theme/colors';
 
 type ForgotPasswordScreenProps = {
@@ -9,6 +12,28 @@ type ForgotPasswordScreenProps = {
 };
 
 export default function ForgotPasswordScreen({ onBack, onSubmit }: ForgotPasswordScreenProps) {
+  const [email, setEmail] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  async function handleSubmit() {
+    if (isSubmitting) {
+      return;
+    }
+
+    setErrorMessage(null);
+    setIsSubmitting(true);
+    const { error } = await requestPasswordReset(email);
+    setIsSubmitting(false);
+
+    if (error) {
+      setErrorMessage(error.message || 'Er ging iets mis bij het versturen van de e-mail.');
+      return;
+    }
+
+    onSubmit?.();
+  }
+
   return (
     <View style={styles.screen}>
       <View style={styles.content}>
@@ -26,11 +51,19 @@ export default function ForgotPasswordScreen({ onBack, onSubmit }: ForgotPasswor
         </View>
 
         <View style={styles.form}>
-          <Field label="Email" placeholder="voorbeeld@email.com" icon="✉" />
+          <Field
+            label="Email"
+            placeholder="voorbeeld@email.com"
+            icon="✉"
+            value={email}
+            onChangeText={setEmail}
+          />
         </View>
 
-        <Pressable onPress={onSubmit} style={styles.primaryButton}>
-          <Text style={styles.primaryText}>Wachtwoord herstellen</Text>
+        {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
+
+        <Pressable onPress={handleSubmit} style={[styles.primaryButton, isSubmitting && styles.primaryButtonDisabled]}>
+          <Text style={styles.primaryText}>{isSubmitting ? 'Bezig...' : 'Wachtwoord herstellen'}</Text>
         </Pressable>
 
         <Pressable onPress={onBack} style={styles.footerButton}>
@@ -47,15 +80,25 @@ type FieldProps = {
   label: string;
   placeholder: string;
   icon: string;
+  value: string;
+  onChangeText: (text: string) => void;
 };
 
-function Field({ label, placeholder, icon }: FieldProps) {
+function Field({ label, placeholder, icon, value, onChangeText }: FieldProps) {
   return (
     <View style={styles.fieldGroup}>
       <Text style={styles.fieldLabel}>{label}</Text>
       <View style={styles.inputShell}>
         <Text style={styles.fieldIcon}>{icon}</Text>
-        <TextInput placeholder={placeholder} placeholderTextColor="#B8C7D4" style={styles.input} />
+        <TextInput
+          autoCapitalize="none"
+          keyboardType="email-address"
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          placeholderTextColor="#B8C7D4"
+          style={styles.input}
+          value={value}
+        />
       </View>
     </View>
   );
@@ -78,7 +121,9 @@ const styles = StyleSheet.create({
   inputShell: { minHeight: 72, borderRadius: 24, borderWidth: 2, borderColor: '#BFEAF0', backgroundColor: colors.white, alignItems: 'center', flexDirection: 'row', paddingHorizontal: 18, gap: 12, shadowColor: colors.shadow, shadowOpacity: 0.08, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 3 },
   fieldIcon: { fontSize: 22, color: '#96A2B0' },
   input: { flex: 1, fontSize: 18, color: colors.textStrong, paddingVertical: 0 },
+  errorText: { marginTop: 16, color: '#D84C63', fontSize: 14, lineHeight: 20, textAlign: 'center', fontWeight: '600' },
   primaryButton: { marginTop: 24, minHeight: 78, borderRadius: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: '#42C7D5' },
+  primaryButtonDisabled: { opacity: 0.75 },
   primaryText: { color: colors.white, fontSize: 20, fontWeight: '800' },
   footerButton: { marginTop: 28, minHeight: 64, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.white, borderWidth: 2, borderColor: '#D3EDF3' },
   footerText: { color: '#42C7D5', fontSize: 18, fontWeight: '700' },

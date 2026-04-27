@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 import { StatusBar } from 'expo-status-bar';
 import { Pressable, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
@@ -6,9 +8,32 @@ import colors from '../theme/colors';
 type ParentAccountScreenProps = {
   onBack?: () => void;
   onLogin?: () => void;
+  onSubmit?: (input: { name: string; email: string; password: string; confirmPassword: string }) => Promise<string | null>;
 };
 
-export default function ParentAccountScreen({ onBack, onLogin }: ParentAccountScreenProps) {
+export default function ParentAccountScreen({ onBack, onLogin, onSubmit }: ParentAccountScreenProps) {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  async function handleSubmit() {
+    if (!onSubmit || isSubmitting) {
+      return;
+    }
+
+    setErrorMessage(null);
+    setIsSubmitting(true);
+    const error = await onSubmit({ name, email, password, confirmPassword });
+    setIsSubmitting(false);
+
+    if (error) {
+      setErrorMessage(error);
+    }
+  }
+
   return (
     <View style={styles.screen}>
       <View style={styles.backgroundTop} />
@@ -26,14 +51,37 @@ export default function ParentAccountScreen({ onBack, onLogin }: ParentAccountSc
         </View>
 
         <View style={styles.form}>
-          <Field label="Naam" placeholder="Voer je naam in" />
-          <Field label="Email" placeholder="voorbeeld@email.com" />
-          <Field label="Wachtwoord" placeholder="Minimaal 6 karakters" secureTextEntry />
-          <Field label="Bevestig wachtwoord" placeholder="Herhaal je wachtwoord" secureTextEntry />
+          <Field label="Naam" placeholder="Voer je naam in" value={name} onChangeText={setName} />
+          <Field
+            label="Email"
+            placeholder="voorbeeld@email.com"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
+          <Field
+            label="Wachtwoord"
+            placeholder="Minimaal 6 karakters"
+            secureTextEntry
+            value={password}
+            onChangeText={setPassword}
+            autoCapitalize="none"
+          />
+          <Field
+            label="Bevestig wachtwoord"
+            placeholder="Herhaal je wachtwoord"
+            secureTextEntry
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            autoCapitalize="none"
+          />
         </View>
 
-        <TouchableOpacity activeOpacity={0.9} style={styles.submitButton}>
-          <Text style={styles.submitText}>Account aanmaken</Text>
+        {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
+
+        <TouchableOpacity activeOpacity={0.9} onPress={handleSubmit} style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}>
+          <Text style={styles.submitText}>{isSubmitting ? 'Bezig...' : 'Account aanmaken'}</Text>
         </TouchableOpacity>
 
         <Pressable onPress={onLogin} style={styles.footerRow}>
@@ -51,18 +99,26 @@ type FieldProps = {
   label: string;
   placeholder: string;
   secureTextEntry?: boolean;
+  value: string;
+  onChangeText: (text: string) => void;
+  keyboardType?: 'default' | 'email-address';
+  autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
 };
 
-function Field({ label, placeholder, secureTextEntry }: FieldProps) {
+function Field({ label, placeholder, secureTextEntry, value, onChangeText, keyboardType, autoCapitalize }: FieldProps) {
   return (
     <View style={styles.fieldGroup}>
       <Text style={styles.fieldLabel}>{label}</Text>
       <View style={styles.inputShell}>
         <TextInput
+          autoCapitalize={autoCapitalize}
+          keyboardType={keyboardType}
+          onChangeText={onChangeText}
           placeholder={placeholder}
           placeholderTextColor="#B8C7D4"
           secureTextEntry={secureTextEntry}
           style={styles.input}
+          value={value}
         />
       </View>
     </View>
@@ -174,11 +230,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#BFEAF0',
   },
+  submitButtonDisabled: {
+    opacity: 0.75,
+  },
   submitText: {
     color: colors.white,
     fontSize: 20,
     lineHeight: 24,
     fontWeight: '800',
+  },
+  errorText: {
+    marginTop: 14,
+    color: '#D84C63',
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+    fontWeight: '600',
   },
   footerRow: {
     marginTop: 24,

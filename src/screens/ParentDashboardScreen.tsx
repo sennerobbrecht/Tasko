@@ -1,0 +1,1106 @@
+import { useEffect, useMemo, useState } from 'react';
+
+import { StatusBar } from 'expo-status-bar';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+
+import colors from '../theme/colors';
+import { getCurrentFamilyRoutines, type RoutineSummary } from '../services/routines';
+
+type ParentDashboardScreenProps = {
+  onLogout?: () => void;
+};
+
+type ParentTab = 'home' | 'insights' | 'planner' | 'profile';
+type ShareDuration = '24u' | '48u' | '72u';
+
+type RoutineTask = {
+  id: string;
+  label: string;
+  done: boolean;
+};
+
+const TEMPLATES = [
+  { id: 'school-week', title: 'School Week', subtitle: 'Perfecte routine voor schooldagen' },
+  { id: 'weekend-routine', title: 'Weekend Routine', subtitle: 'Ontspannen en toch structuur' },
+  { id: 'zomer-routine', title: 'Zomervakantie', subtitle: 'Zonnige routine voor vrije dagen' },
+  { id: 'avond-routine', title: 'Avond Routine', subtitle: 'Rustig afsluiten om beter te slapen' },
+  { id: 'verjaardag', title: 'Verjaardagsdag', subtitle: 'Speciale routine voor feestjes' },
+  { id: 'zelf', title: 'Zelf Maken', subtitle: 'Maak je eigen familie routine' },
+];
+
+export default function ParentDashboardScreen({ onLogout }: ParentDashboardScreenProps) {
+  const [activeTab, setActiveTab] = useState<ParentTab>('home');
+  const [showReadOnlyModal, setShowReadOnlyModal] = useState(false);
+  const [showInviteScreen, setShowInviteScreen] = useState(false);
+  const [shareDuration, setShareDuration] = useState<ShareDuration>('24u');
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('school-week');
+  const [dbRoutines, setDbRoutines] = useState<RoutineSummary[]>([]);
+  const [routinesError, setRoutinesError] = useState<string | null>(null);
+  const [routinesLoading, setRoutinesLoading] = useState(true);
+  const [routineTasks, setRoutineTasks] = useState<RoutineTask[]>([
+    { id: 'wake-up', label: 'Opstaan', done: false },
+    { id: 'breakfast', label: 'Ontbijten', done: false },
+    { id: 'brush', label: 'Tandenpoetsen', done: false },
+    { id: 'to-school', label: 'Naar school', done: false },
+    { id: 'homework', label: 'Huiswerk', done: false },
+    { id: 'dinner', label: 'Avondeten', done: false },
+    { id: 'bed', label: 'Naar bed', done: false },
+  ]);
+
+  const selectedTemplate = useMemo(
+    () => TEMPLATES.find((template) => template.id === selectedTemplateId) ?? TEMPLATES[0],
+    [selectedTemplateId],
+  );
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchRoutines = async () => {
+      setRoutinesLoading(true);
+      setRoutinesError(null);
+      const { data, error } = await getCurrentFamilyRoutines();
+
+      if (!isMounted) {
+        return;
+      }
+
+      if (error) {
+        setRoutinesError(error.message);
+        setDbRoutines([]);
+      } else {
+        setDbRoutines(data);
+      }
+
+      setRoutinesLoading(false);
+    };
+
+    fetchRoutines();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  if (showInviteScreen) {
+    return (
+      <View style={styles.screen}>
+        <View style={[styles.header, styles.headerPink]}>
+          <Pressable onPress={() => setShowInviteScreen(false)} style={styles.headerBackButton}>
+            <Text style={styles.headerBackText}>← Terug</Text>
+          </Pressable>
+          <Text style={styles.headerTitle}>Uitnodigen voor Team</Text>
+          <Text style={styles.headerSubtitle}>Nodig andere ouders of begeleiders uit</Text>
+        </View>
+
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Scan de QR Code</Text>
+            <View style={styles.qrFrame}>
+              <View style={styles.qrOuter}>
+                {Array.from({ length: 9 }).map((_, row) => (
+                  <View key={`row-${row}`} style={styles.qrRow}>
+                    {Array.from({ length: 9 }).map((__, col) => {
+                      const dense = (row + col) % 2 === 0 || (row * col) % 3 === 0;
+                      return <View key={`cell-${row}-${col}`} style={[styles.qrCell, dense && styles.qrCellDark]} />;
+                    })}
+                  </View>
+                ))}
+              </View>
+            </View>
+            <Text style={styles.supportText}>Laat anderen deze code scannen om lid te worden van je team</Text>
+          </View>
+
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Deel de uitnodigingscode</Text>
+            <View style={styles.codeBox}>
+              <Text style={styles.codeText}>TA-SK-02-46</Text>
+            </View>
+
+            <View style={styles.inlineActions}>
+              <Pressable style={[styles.actionButton, styles.actionPrimary]}>
+                <Text style={styles.actionPrimaryText}>Kopieer Code</Text>
+              </Pressable>
+              <Pressable style={[styles.actionButton, styles.actionSecondary]}>
+                <Text style={styles.actionSecondaryText}>Deel</Text>
+              </Pressable>
+            </View>
+          </View>
+
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Hoe werkt het?</Text>
+            <Text style={styles.helperStep}>1. Deel de QR code of uitnodigingscode</Text>
+            <Text style={styles.helperStep}>2. De ander voert de code in via de app</Text>
+            <Text style={styles.helperStep}>3. Je team is klaar om samen routines te beheren</Text>
+          </View>
+        </ScrollView>
+
+        <StatusBar style="dark" />
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.screen}>
+      <View
+        style={[
+          styles.header,
+          activeTab === 'home' && styles.headerMint,
+          activeTab === 'insights' && styles.headerSky,
+          activeTab === 'planner' && styles.headerPurple,
+          activeTab === 'profile' && styles.headerMint,
+        ]}
+      >
+        <Text style={styles.headerTitle}>
+          {activeTab === 'home' && 'Welkom terug, Maria 👋'}
+          {activeTab === 'insights' && 'Inzichten'}
+          {activeTab === 'planner' && 'Kies een Template'}
+          {activeTab === 'profile' && 'Instellingen'}
+        </Text>
+        <Text style={styles.headerSubtitle}>
+          {activeTab === 'home' && 'Hier is je basis dashboard voor het gezin'}
+          {activeTab === 'insights' && 'Bekijk trends en deel alleen-lezen toegang'}
+          {activeTab === 'planner' && 'Begin met een kant-en-klare routine'}
+          {activeTab === 'profile' && 'Beheer je account en voorkeuren'}
+        </Text>
+      </View>
+
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {activeTab === 'home' && (
+          <>
+            <View style={[styles.card, styles.progressCard]}>
+              <View style={styles.rowBetween}>
+                <Text style={styles.cardTitle}>Emma's Voortgang</Text>
+                <Text style={styles.smallBadge}>Vandaag bijgewerkt</Text>
+              </View>
+
+              <View style={styles.progressShell}>
+                <View style={[styles.progressFill, { width: '80%' }]} />
+              </View>
+              <Text style={styles.supportText}>12 van 15 taken voltooid</Text>
+
+              <View style={styles.statGrid}>
+                <StatCard label="Streak" value="7 dagen" />
+                <StatCard label="Voltooid" value="12/15" />
+                <StatCard label="Focus" value="85%" />
+              </View>
+            </View>
+
+            <View style={styles.card}>
+              <View style={styles.rowBetween}>
+                <Text style={styles.cardTitle}>Actieve Routines</Text>
+                <Text style={styles.subtleText}>{dbRoutines.length} gevonden</Text>
+              </View>
+
+              {routinesLoading ? <Text style={styles.subtleText}>Routines laden...</Text> : null}
+              {routinesError ? <Text style={styles.errorText}>{routinesError}</Text> : null}
+
+              {!routinesLoading && !routinesError && dbRoutines.length === 0 ? (
+                <Text style={styles.subtleText}>Nog geen routines. Maak er een via Planner.</Text>
+              ) : null}
+
+              {!routinesLoading && !routinesError
+                ? dbRoutines.slice(0, 3).map((routine, index) => (
+                    <RoutineRow
+                      key={routine.id}
+                      title={routine.title}
+                      time={routine.is_active ? 'Actief' : 'Inactief'}
+                      tone={index % 3 === 0 ? 'mint' : index % 3 === 1 ? 'sky' : 'pink'}
+                    />
+                  ))
+                : null}
+            </View>
+
+            <View style={styles.card}>
+              <View style={styles.rowBetween}>
+                <Text style={styles.cardTitle}>Snelle Acties</Text>
+              </View>
+              <View style={styles.quickActionsRow}>
+                <Pressable onPress={() => setActiveTab('insights')} style={styles.quickAction}>
+                  <Text style={styles.quickActionTitle}>Basis Inzichten</Text>
+                  <Text style={styles.quickActionSubtitle}>Bekijk dag en week overzicht</Text>
+                </Pressable>
+                <Pressable onPress={() => setActiveTab('planner')} style={styles.quickAction}>
+                  <Text style={styles.quickActionTitle}>Routine Builder</Text>
+                  <Text style={styles.quickActionSubtitle}>Stel taken voor morgen in</Text>
+                </Pressable>
+              </View>
+            </View>
+          </>
+        )}
+
+        {activeTab === 'insights' && (
+          <>
+            <View style={styles.card}>
+              <View style={styles.rowBetween}>
+                <Text style={styles.cardTitle}>Deze week</Text>
+                <Pressable onPress={() => setShowReadOnlyModal(true)} style={styles.iconAction}>
+                  <Text style={styles.iconActionText}>Delen</Text>
+                </Pressable>
+              </View>
+
+              <View style={styles.dayTabs}>
+                {['Ma', 'Di', 'Wo', 'Do', 'Vr'].map((day, index) => (
+                  <View key={day} style={[styles.dayTab, index === 0 && styles.dayTabActive]}>
+                    <Text style={[styles.dayTabText, index === 0 && styles.dayTabTextActive]}>{day}</Text>
+                  </View>
+                ))}
+              </View>
+
+              <View style={styles.emojiRow}>
+                {['🙂', '😊', '😐', '😕', '😴'].map((emoji) => (
+                  <View key={emoji} style={styles.emojiPill}>
+                    <Text>{emoji}</Text>
+                  </View>
+                ))}
+              </View>
+
+              <View style={styles.chartShell}>
+                <View style={[styles.chartBar, { height: 46 }]} />
+                <View style={[styles.chartBar, { height: 74 }]} />
+                <View style={[styles.chartBar, { height: 62 }]} />
+                <View style={[styles.chartBar, { height: 80 }]} />
+                <View style={[styles.chartBar, { height: 50 }]} />
+                <View style={[styles.chartBar, { height: 66 }]} />
+                <View style={[styles.chartBar, { height: 58 }]} />
+              </View>
+            </View>
+
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Routines</Text>
+              {dbRoutines.length === 0 ? <TaskInsightRow label="Nog geen routines" /> : null}
+              {dbRoutines.slice(0, 3).map((routine) => (
+                <TaskInsightRow key={routine.id} label={routine.title} />
+              ))}
+            </View>
+          </>
+        )}
+
+        {activeTab === 'planner' && (
+          <>
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Populair</Text>
+              <View style={styles.templateGrid}>
+                {TEMPLATES.slice(0, 2).map((template) => (
+                  <TemplateCard
+                    key={template.id}
+                    title={template.title}
+                    subtitle={template.subtitle}
+                    selected={selectedTemplateId === template.id}
+                    onPress={() => setSelectedTemplateId(template.id)}
+                  />
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Alle Templates</Text>
+              {TEMPLATES.slice(2).map((template) => (
+                <Pressable key={template.id} onPress={() => setSelectedTemplateId(template.id)} style={styles.templateRow}>
+                  <View>
+                    <Text style={styles.templateRowTitle}>{template.title}</Text>
+                    <Text style={styles.templateRowSubtitle}>{template.subtitle}</Text>
+                  </View>
+                  <Text style={styles.templateRowAction}>{selectedTemplateId === template.id ? 'Actief' : 'Gebruik'}</Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <View style={styles.card}>
+              <View style={styles.rowBetween}>
+                <Text style={styles.cardTitle}>{selectedTemplate.title}</Text>
+                <Pressable style={styles.addButton}>
+                  <Text style={styles.addButtonText}>+ Toevoegen</Text>
+                </Pressable>
+              </View>
+
+              {routineTasks.map((task) => (
+                <Pressable
+                  key={task.id}
+                  onPress={() =>
+                    setRoutineTasks((prev) =>
+                      prev.map((row) => (row.id === task.id ? { ...row, done: !row.done } : row)),
+                    )
+                  }
+                  style={[styles.taskRow, task.done && styles.taskRowDone]}
+                >
+                  <View style={[styles.checkbox, task.done && styles.checkboxActive]}>
+                    <Text style={styles.checkboxText}>{task.done ? '✓' : ''}</Text>
+                  </View>
+                  <Text style={styles.taskText}>{task.label}</Text>
+                  <Text style={styles.deleteTask}>🗑</Text>
+                </Pressable>
+              ))}
+
+              <Pressable style={styles.saveButton}>
+                <Text style={styles.saveButtonText}>Routine Opslaan</Text>
+              </Pressable>
+            </View>
+          </>
+        )}
+
+        {activeTab === 'profile' && (
+          <>
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Maria van Dijk</Text>
+              <Text style={styles.subtleText}>maria@email.com</Text>
+              <Text style={styles.inlineTag}>BASIS</Text>
+            </View>
+
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Account</Text>
+              <MenuRow label="Family & Team Settings" onPress={() => setShowInviteScreen(true)} />
+              <MenuRow label="Invite to Team" onPress={() => setShowInviteScreen(true)} />
+            </View>
+
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Preferences</Text>
+              <MenuRow label="Visibility & Permissions" />
+              <MenuRow label="Notifications" />
+              <MenuRow label="Account & Support" />
+            </View>
+
+            <Pressable onPress={onLogout} style={[styles.actionButton, styles.logoutButton]}>
+              <Text style={styles.actionSecondaryText}>Uitloggen</Text>
+            </Pressable>
+          </>
+        )}
+      </ScrollView>
+
+      <View style={styles.bottomNav}>
+        <BottomTab label="Home" active={activeTab === 'home'} onPress={() => setActiveTab('home')} />
+        <BottomTab label="Inzichten" active={activeTab === 'insights'} onPress={() => setActiveTab('insights')} />
+        <BottomTab label="Planner" active={activeTab === 'planner'} onPress={() => setActiveTab('planner')} />
+        <BottomTab label="Profiel" active={activeTab === 'profile'} onPress={() => setActiveTab('profile')} />
+      </View>
+
+      <Modal transparent visible={showReadOnlyModal} animationType="fade" onRequestClose={() => setShowReadOnlyModal(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Deel de alleen-lezen link</Text>
+            <Text style={styles.modalSubtitle}>Kies hoelang de link geldig blijft</Text>
+
+            <View style={styles.durationRow}>
+              {(['24u', '48u', '72u'] as const).map((duration) => (
+                <Pressable
+                  key={duration}
+                  onPress={() => setShareDuration(duration)}
+                  style={[styles.durationPill, shareDuration === duration && styles.durationPillActive]}
+                >
+                  <Text style={[styles.durationText, shareDuration === duration && styles.durationTextActive]}>{duration}</Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <Pressable onPress={() => setShowReadOnlyModal(false)} style={styles.generateButton}>
+              <Text style={styles.generateButtonText}>Link genereren</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      <StatusBar style="dark" />
+    </View>
+  );
+}
+
+function StatCard({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.statCard}>
+      <Text style={styles.statValue}>{value}</Text>
+      <Text style={styles.statLabel}>{label}</Text>
+    </View>
+  );
+}
+
+function RoutineRow({ title, time, tone }: { title: string; time: string; tone: 'mint' | 'sky' | 'pink' }) {
+  return (
+    <View
+      style={[
+        styles.routineRow,
+        tone === 'mint' && styles.routineMint,
+        tone === 'sky' && styles.routineSky,
+        tone === 'pink' && styles.routinePink,
+      ]}
+    >
+      <Text style={styles.routineTitle}>{title}</Text>
+      <Text style={styles.routineTime}>{time}</Text>
+    </View>
+  );
+}
+
+function TaskInsightRow({ label }: { label: string }) {
+  return (
+    <View style={styles.taskInsightRow}>
+      <Text style={styles.taskInsightText}>{label}</Text>
+      <Text style={styles.taskInsightDelete}>✕</Text>
+    </View>
+  );
+}
+
+function TemplateCard({
+  title,
+  subtitle,
+  selected,
+  onPress,
+}: {
+  title: string;
+  subtitle: string;
+  selected: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable onPress={onPress} style={[styles.templateCard, selected && styles.templateCardSelected]}>
+      <Text style={styles.templateCardTitle}>{title}</Text>
+      <Text style={styles.templateCardSubtitle}>{subtitle}</Text>
+      <Text style={styles.templateCardHint}>{selected ? 'Geselecteerd' : 'Selecteer'}</Text>
+    </Pressable>
+  );
+}
+
+function MenuRow({ label, onPress }: { label: string; onPress?: () => void }) {
+  return (
+    <Pressable onPress={onPress} style={styles.menuRow}>
+      <Text style={styles.menuLabel}>{label}</Text>
+      <Text style={styles.menuArrow}>›</Text>
+    </Pressable>
+  );
+}
+
+function BottomTab({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+  return (
+    <Pressable onPress={onPress} style={[styles.bottomTab, active && styles.bottomTabActive]}>
+      <Text style={[styles.bottomTabLabel, active && styles.bottomTabLabelActive]}>{label}</Text>
+    </Pressable>
+  );
+}
+
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  header: {
+    paddingTop: 42,
+    paddingHorizontal: 20,
+    paddingBottom: 18,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
+  },
+  headerMint: {
+    backgroundColor: '#4CC9D8',
+  },
+  headerSky: {
+    backgroundColor: '#42C7D5',
+  },
+  headerPurple: {
+    backgroundColor: '#8079E8',
+  },
+  headerPink: {
+    backgroundColor: '#F36FA2',
+  },
+  headerTitle: {
+    fontSize: 30,
+    lineHeight: 36,
+    fontWeight: '900',
+    color: colors.white,
+  },
+  headerSubtitle: {
+    marginTop: 8,
+    fontSize: 14,
+    color: '#EAF9FC',
+    fontWeight: '600',
+  },
+  headerBackButton: {
+    alignSelf: 'flex-start',
+    marginBottom: 10,
+    paddingVertical: 8,
+  },
+  headerBackText: {
+    color: colors.white,
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  content: {
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 120,
+    gap: 12,
+  },
+  card: {
+    backgroundColor: colors.white,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: '#DDECF0',
+    padding: 14,
+    gap: 10,
+    shadowColor: colors.shadow,
+    shadowOpacity: 0.07,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 2,
+  },
+  progressCard: {
+    gap: 12,
+  },
+  cardTitle: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: colors.textStrong,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#738194',
+  },
+  rowBetween: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  smallBadge: {
+    fontSize: 12,
+    color: '#5F68C9',
+    backgroundColor: '#EDF1FF',
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+    fontWeight: '700',
+  },
+  progressShell: {
+    height: 10,
+    borderRadius: 999,
+    backgroundColor: '#E8EEF2',
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 999,
+    backgroundColor: '#736FE8',
+  },
+  supportText: {
+    color: '#8A97A9',
+    fontSize: 13,
+    lineHeight: 18,
+    textAlign: 'center',
+  },
+  helperStep: {
+    color: '#6C7A8E',
+    fontSize: 14,
+    lineHeight: 21,
+    fontWeight: '600',
+  },
+  subtleText: {
+    color: '#8A97A9',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  errorText: {
+    color: '#D84C63',
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '600',
+  },
+  statGrid: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  statCard: {
+    flex: 1,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E1ECF0',
+    backgroundColor: '#F7FBFC',
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  statValue: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: colors.textStrong,
+  },
+  statLabel: {
+    marginTop: 2,
+    fontSize: 12,
+    color: '#8A97A9',
+    fontWeight: '700',
+  },
+  routineRow: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E1ECF0',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  routineMint: {
+    backgroundColor: '#EEFFF8',
+  },
+  routineSky: {
+    backgroundColor: '#F1FDFF',
+  },
+  routinePink: {
+    backgroundColor: '#FFF4F7',
+  },
+  routineTitle: {
+    fontSize: 15,
+    color: colors.textStrong,
+    fontWeight: '800',
+  },
+  routineTime: {
+    fontSize: 13,
+    color: '#8492A2',
+    fontWeight: '700',
+  },
+  quickActionsRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  quickAction: {
+    flex: 1,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#DCEBF0',
+    backgroundColor: '#F8FCFD',
+    padding: 12,
+  },
+  quickActionTitle: {
+    color: colors.textStrong,
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  quickActionSubtitle: {
+    marginTop: 4,
+    color: '#8694A3',
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  dayTabs: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  dayTab: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#DAE9EE',
+    backgroundColor: '#F8FCFD',
+  },
+  dayTabActive: {
+    backgroundColor: '#44C3D2',
+    borderColor: '#44C3D2',
+  },
+  dayTabText: {
+    color: '#8794A4',
+    fontWeight: '700',
+  },
+  dayTabTextActive: {
+    color: colors.white,
+  },
+  emojiRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  emojiPill: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F3F9FB',
+    borderWidth: 1,
+    borderColor: '#E1EDF1',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chartShell: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E1ECF0',
+    backgroundColor: '#F9FCFD',
+    minHeight: 120,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    paddingHorizontal: 10,
+    paddingBottom: 8,
+    paddingTop: 10,
+    gap: 6,
+  },
+  chartBar: {
+    flex: 1,
+    borderRadius: 999,
+    backgroundColor: '#AFEAF1',
+  },
+  iconAction: {
+    borderRadius: 999,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: '#ECFBFD',
+    borderWidth: 1,
+    borderColor: '#CDEDF2',
+  },
+  iconActionText: {
+    color: '#2B8EA0',
+    fontWeight: '700',
+    fontSize: 12,
+  },
+  taskInsightRow: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E4EEF2',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    backgroundColor: '#F8FCFD',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  taskInsightText: {
+    color: colors.textStrong,
+    fontWeight: '700',
+    fontSize: 15,
+  },
+  taskInsightDelete: {
+    color: '#EF7E8B',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  templateGrid: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  templateCard: {
+    flex: 1,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#DEEAF0',
+    backgroundColor: '#F9FCFD',
+    padding: 12,
+    minHeight: 110,
+    justifyContent: 'space-between',
+  },
+  templateCardSelected: {
+    borderColor: '#7B73E8',
+    backgroundColor: '#F2F1FF',
+  },
+  templateCardTitle: {
+    color: colors.textStrong,
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  templateCardSubtitle: {
+    color: '#8794A3',
+    marginTop: 4,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  templateCardHint: {
+    marginTop: 8,
+    color: '#46B8C8',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  templateRow: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E1ECF1',
+    backgroundColor: '#F8FCFD',
+    paddingVertical: 11,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  templateRowTitle: {
+    color: colors.textStrong,
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  templateRowSubtitle: {
+    marginTop: 2,
+    color: '#8794A3',
+    fontSize: 12,
+  },
+  templateRowAction: {
+    color: '#2EA7B8',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  addButton: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#BFEAF0',
+    backgroundColor: '#ECFBFD',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  addButtonText: {
+    color: '#2E93A2',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  taskRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E1ECF1',
+    backgroundColor: '#F8FCFD',
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    gap: 10,
+  },
+  taskRowDone: {
+    backgroundColor: '#F0FFFA',
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1,
+    borderColor: '#CFE6EC',
+    backgroundColor: colors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxActive: {
+    borderColor: '#3FBFB0',
+    backgroundColor: '#3FBFB0',
+  },
+  checkboxText: {
+    color: colors.white,
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  taskText: {
+    flex: 1,
+    color: colors.textStrong,
+    fontWeight: '700',
+    fontSize: 15,
+  },
+  deleteTask: {
+    color: '#F08B97',
+    fontSize: 15,
+  },
+  saveButton: {
+    marginTop: 4,
+    borderRadius: 14,
+    backgroundColor: '#42C7D5',
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saveButtonText: {
+    color: colors.white,
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  inlineTag: {
+    alignSelf: 'flex-start',
+    marginTop: 4,
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#F6A81A',
+    backgroundColor: '#FFF3D8',
+    borderRadius: 999,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+  },
+  menuRow: {
+    borderTopWidth: 1,
+    borderTopColor: '#E8F0F3',
+    paddingTop: 12,
+    paddingBottom: 6,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  menuLabel: {
+    color: colors.textStrong,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  menuArrow: {
+    color: '#A2AFBC',
+    fontSize: 20,
+  },
+  actionButton: {
+    minHeight: 46,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionPrimary: {
+    flex: 1,
+    backgroundColor: '#42C7D5',
+  },
+  actionSecondary: {
+    backgroundColor: '#F4F8FA',
+    borderWidth: 1,
+    borderColor: '#DCEAF0',
+    minWidth: 84,
+  },
+  actionPrimaryText: {
+    color: colors.white,
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  actionSecondaryText: {
+    color: colors.textStrong,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  logoutButton: {
+    backgroundColor: '#F7FCFD',
+    borderWidth: 1,
+    borderColor: '#D9EBF0',
+  },
+  inlineActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  qrFrame: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+  },
+  qrOuter: {
+    width: 190,
+    height: 190,
+    borderWidth: 3,
+    borderColor: '#43B9C8',
+    borderRadius: 14,
+    padding: 10,
+    backgroundColor: colors.white,
+    justifyContent: 'space-between',
+  },
+  qrRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    flex: 1,
+    gap: 5,
+  },
+  qrCell: {
+    flex: 1,
+    backgroundColor: '#E4ECEF',
+    borderRadius: 2,
+  },
+  qrCellDark: {
+    backgroundColor: '#1A1E24',
+  },
+  codeBox: {
+    minHeight: 72,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: '#BFEAF0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F5FDFF',
+  },
+  codeText: {
+    fontSize: 34,
+    color: '#2E95A5',
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
+  bottomNav: {
+    position: 'absolute',
+    left: 12,
+    right: 12,
+    bottom: 18,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#D8EAF0',
+    backgroundColor: colors.white,
+    flexDirection: 'row',
+    padding: 6,
+    shadowColor: colors.shadow,
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 3,
+  },
+  bottomTab: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bottomTabActive: {
+    backgroundColor: '#DDF5F8',
+  },
+  bottomTabLabel: {
+    color: '#8A97A9',
+    fontWeight: '700',
+    fontSize: 12,
+  },
+  bottomTabLabelActive: {
+    color: '#2B8D9D',
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(17, 26, 34, 0.36)',
+    paddingHorizontal: 20,
+    justifyContent: 'center',
+  },
+  modalCard: {
+    backgroundColor: colors.white,
+    borderRadius: 20,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#DAEAF0',
+    gap: 12,
+  },
+  modalTitle: {
+    color: colors.textStrong,
+    fontSize: 22,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
+  modalSubtitle: {
+    color: '#8391A1',
+    fontSize: 13,
+    textAlign: 'center',
+  },
+  durationRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  durationPill: {
+    flex: 1,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#CBEAF0',
+    minHeight: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F5FCFD',
+  },
+  durationPillActive: {
+    borderColor: '#42C7D5',
+    backgroundColor: '#42C7D5',
+  },
+  durationText: {
+    color: '#2D93A2',
+    fontWeight: '700',
+  },
+  durationTextActive: {
+    color: colors.white,
+  },
+  generateButton: {
+    minHeight: 48,
+    borderRadius: 12,
+    backgroundColor: '#42C7D5',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  generateButtonText: {
+    color: colors.white,
+    fontWeight: '800',
+    fontSize: 16,
+  },
+});
