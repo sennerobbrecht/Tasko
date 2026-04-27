@@ -2,11 +2,19 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { StatusBar } from 'expo-status-bar';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import QRCode from 'react-native-qrcode-svg';
 
 import colors from '../theme/colors';
 import { getCurrentFamilyRoutines, type RoutineSummary } from '../services/routines';
 
+type User = {
+  id: string;
+  email: string;
+  name: string;
+};
+
 type ParentDashboardScreenProps = {
+  currentUser?: User | null;
   onLogout?: () => void;
 };
 
@@ -28,7 +36,7 @@ const TEMPLATES = [
   { id: 'zelf', title: 'Zelf Maken', subtitle: 'Maak je eigen familie routine' },
 ];
 
-export default function ParentDashboardScreen({ onLogout }: ParentDashboardScreenProps) {
+export default function ParentDashboardScreen({ currentUser, onLogout }: ParentDashboardScreenProps) {
   const [activeTab, setActiveTab] = useState<ParentTab>('home');
   const [showReadOnlyModal, setShowReadOnlyModal] = useState(false);
   const [showInviteScreen, setShowInviteScreen] = useState(false);
@@ -82,6 +90,8 @@ export default function ParentDashboardScreen({ onLogout }: ParentDashboardScree
   }, []);
 
   if (showInviteScreen) {
+    const inviteCode = `TASKO-${currentUser?.id?.slice(0, 8).toUpperCase() || 'XXXX'}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+    
     return (
       <View style={styles.screen}>
         <View style={[styles.header, styles.headerPink]}>
@@ -96,16 +106,12 @@ export default function ParentDashboardScreen({ onLogout }: ParentDashboardScree
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Scan de QR Code</Text>
             <View style={styles.qrFrame}>
-              <View style={styles.qrOuter}>
-                {Array.from({ length: 9 }).map((_, row) => (
-                  <View key={`row-${row}`} style={styles.qrRow}>
-                    {Array.from({ length: 9 }).map((__, col) => {
-                      const dense = (row + col) % 2 === 0 || (row * col) % 3 === 0;
-                      return <View key={`cell-${row}-${col}`} style={[styles.qrCell, dense && styles.qrCellDark]} />;
-                    })}
-                  </View>
-                ))}
-              </View>
+              <QRCode
+                value={inviteCode}
+                size={200}
+                color="black"
+                backgroundColor="white"
+              />
             </View>
             <Text style={styles.supportText}>Laat anderen deze code scannen om lid te worden van je team</Text>
           </View>
@@ -113,7 +119,7 @@ export default function ParentDashboardScreen({ onLogout }: ParentDashboardScree
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Deel de uitnodigingscode</Text>
             <View style={styles.codeBox}>
-              <Text style={styles.codeText}>TA-SK-02-46</Text>
+              <Text style={styles.codeText}>{inviteCode}</Text>
             </View>
 
             <View style={styles.inlineActions}>
@@ -151,7 +157,7 @@ export default function ParentDashboardScreen({ onLogout }: ParentDashboardScree
         ]}
       >
         <Text style={styles.headerTitle}>
-          {activeTab === 'home' && 'Welkom terug, Maria 👋'}
+          {activeTab === 'home' && `Welkom terug, ${currentUser?.name || 'Ouder'} 👋`}
           {activeTab === 'insights' && 'Inzichten'}
           {activeTab === 'planner' && 'Kies een Template'}
           {activeTab === 'profile' && 'Instellingen'}
@@ -341,8 +347,8 @@ export default function ParentDashboardScreen({ onLogout }: ParentDashboardScree
         {activeTab === 'profile' && (
           <>
             <View style={styles.card}>
-              <Text style={styles.cardTitle}>Maria van Dijk</Text>
-              <Text style={styles.subtleText}>maria@email.com</Text>
+              <Text style={styles.cardTitle}>{currentUser?.name || 'Mijn Account'}</Text>
+              <Text style={styles.subtleText}>{currentUser?.email || 'email@example.com'}</Text>
               <Text style={styles.inlineTag}>BASIS</Text>
             </View>
 

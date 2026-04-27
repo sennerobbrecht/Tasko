@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 
+import { Alert } from 'react-native';
 import ParentAccountScreen from './src/screens/ParentAccountScreen';
 import WelcomeScreen from './src/screens/WelcomeScreen';
 import LoginScreen from './src/screens/LoginScreen';
@@ -19,6 +20,12 @@ import ParentDashboardScreen from './src/screens/ParentDashboardScreen';
 import { getSessionUser, signInParent, signOutCurrentUser, signUpParent } from './src/services/auth';
 import { ensureFamilyForCurrentUser } from './src/services/families';
 import type { AccessoryKey } from './src/components/MonsterPreview';
+
+type User = {
+  id: string;
+  email: string;
+  name: string;
+};
 
 type Screen =
   | 'welcome'
@@ -41,6 +48,7 @@ type Screen =
 export default function App() {
   const [screen, setScreen] = useState<Screen>('welcome');
 	const [isAuthBootstrapDone, setIsAuthBootstrapDone] = useState(false);
+	const [currentUser, setCurrentUser] = useState<User | null>(null);
 	const [monsterName, setMonsterName] = useState('');
 	const [selectedAccessory, setSelectedAccessory] = useState<AccessoryKey | undefined>(undefined);
 	const [coins] = useState(0);
@@ -59,6 +67,12 @@ export default function App() {
 			}
 
 			if (user) {
+				const fullName = user.user_metadata?.full_name || '';
+				setCurrentUser({
+					id: user.id,
+					email: user.email || '',
+					name: fullName,
+				});
 				await ensureFamilyForCurrentUser();
 				if (isMounted) {
 					setScreen('parentDashboard');
@@ -133,6 +147,16 @@ export default function App() {
 					const { error } = await signInParent(email, password);
 					if (error) {
 						return error.message;
+					}
+
+					const user = await getSessionUser();
+					if (user) {
+						const fullName = user.user_metadata?.full_name || '';
+						setCurrentUser({
+							id: user.id,
+							email: user.email || '',
+							name: fullName,
+						});
 					}
 
 					await ensureFamilyForCurrentUser();
@@ -227,10 +251,14 @@ export default function App() {
 					}
 
 					if (needsEmailConfirmation) {
-						return 'Controleer je e-mail om je account te bevestigen en log daarna in.';
+						Alert.alert('Account aangemaakt!', 'Welkom! Log nu in met je gegevens.', [
+							{ text: 'OK', onPress: () => setScreen('login') },
+						]);
+						return null;
 					}
 
 					await ensureFamilyForCurrentUser();
+					setCurrentUser({ id: '', email, name });
 					setScreen('parentDashboard');
 					return null;
 				}}
@@ -239,10 +267,14 @@ export default function App() {
 	}
 
 	if (screen === 'parentDashboard') {
-		return <ParentDashboardScreen onLogout={async () => {
-			await signOutCurrentUser();
-			setScreen('welcome');
-		}} />;
+		return <ParentDashboardScreen 
+			currentUser={currentUser}
+			onLogout={async () => {
+				await signOutCurrentUser();
+				setCurrentUser(null);
+				setScreen('welcome');
+			}}
+		/>;
 	}
 
 	return (
