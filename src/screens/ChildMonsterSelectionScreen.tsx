@@ -49,7 +49,16 @@ export default function ChildMonsterSelectionScreen({ onBack, onContinue }: Chil
         <Text style={styles.sectionTitle}>Geef jouw monster een naam</Text>
 
         <View style={styles.inputShell}>
-          <TextInput value={monsterName} onChangeText={setMonsterName} placeholder="Sparky" placeholderTextColor="#B8C7D4" style={styles.input} />
+          <TextInput
+            value={monsterName}
+            onChangeText={setMonsterName}
+            placeholder="Sparky"
+            placeholderTextColor="#B8C7D4"
+            style={styles.input}
+            autoComplete="off"
+            importantForAutofill="no"
+            textContentType="none"
+          />
         </View>
 
         <Text style={styles.helper}>{monsterName.length}/20 karakters</Text>

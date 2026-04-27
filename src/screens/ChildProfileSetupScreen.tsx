@@ -43,7 +43,16 @@ export default function ChildProfileSetupScreen({ onBack, onContinue, inviteCode
         </View>
 
         <View style={styles.inputShell}>
-          <TextInput placeholder="sennero2005" placeholderTextColor="#B8C7D4" style={styles.input} value={username} onChangeText={setUsername} />
+          <TextInput
+            placeholder="sennero2005"
+            placeholderTextColor="#B8C7D4"
+            style={styles.input}
+            value={username}
+            onChangeText={setUsername}
+            autoComplete="off"
+            importantForAutofill="no"
+            textContentType="none"
+          />
         </View>
 
         <Text style={styles.helper}>Deze naam zien anderen in je gezin</Text>

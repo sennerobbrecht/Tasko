@@ -57,6 +57,7 @@ export default function ParentDashboardScreen({ currentUser, onLogout }: ParentD
   const [children, setChildren] = useState<Array<{ id: string; display_name: string }>>([]);
   const [childrenLoading, setChildrenLoading] = useState(true);
   const [inviteCodeDb, setInviteCodeDb] = useState<string | null>(null);
+  const [inviteCodeLocal, setInviteCodeLocal] = useState<string | null>(null);
   const [routineTasks, setRoutineTasks] = useState<RoutineTask[]>([
     { id: 'wake-up', label: 'Opstaan', done: false },
     { id: 'breakfast', label: 'Ontbijten', done: false },
@@ -149,8 +150,13 @@ export default function ParentDashboardScreen({ currentUser, onLogout }: ParentD
   useEffect(() => {
     let mounted = true;
     if (!showInviteScreen) return;
+    // create a local optimistic code so QR/code appears immediately
+    const local = generateInviteCode(familyId ?? currentUser?.id);
+    setInviteCodeLocal(local);
+    setInviteCodeDb(null);
+
     const createInvite = async () => {
-      const { data, error } = await createTeamInviteForCurrentFamily();
+      const { data, error } = await createTeamInviteForCurrentFamily({ code: local });
       if (!mounted) return;
       if (!error && data && data.code) setInviteCodeDb(data.code);
     };
@@ -402,13 +408,13 @@ export default function ParentDashboardScreen({ currentUser, onLogout }: ParentD
   }
 
   if (showInviteScreen) {
-    const inviteCode = inviteCodeDb ?? generateInviteCode(familyId ?? currentUser?.id);
-    const inviteLink = `tasko://invite?code=${inviteCode}`;
+    const inviteCode = inviteCodeDb ?? inviteCodeLocal ?? null;
+    const inviteLink = inviteCode ? `tasko://invite?code=${inviteCode}` : null;
     
     return (
       <View style={styles.screen}>
         <View style={[styles.header, styles.headerPink]}>
-          <Pressable onPress={() => setShowInviteScreen(false)} style={styles.headerBackButton}>
+          <Pressable onPress={() => { setShowInviteScreen(false); setInviteCodeDb(null); setInviteCodeLocal(null); }} style={styles.headerBackButton}>
             <Text style={styles.headerBackText}>← Terug</Text>
           </Pressable>
           <Text style={styles.headerTitle}>Uitnodigen voor Team</Text>
@@ -419,12 +425,11 @@ export default function ParentDashboardScreen({ currentUser, onLogout }: ParentD
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Scan de QR Code</Text>
             <View style={styles.qrFrame}>
-              <QRCode
-                value={inviteLink}
-                size={200}
-                color="black"
-                backgroundColor="white"
-              />
+              {inviteCode ? (
+                <QRCode value={inviteLink!} size={200} color="black" backgroundColor="white" />
+              ) : (
+                <Text style={styles.supportText}>Even wachten terwijl de uitnodiging wordt aangemaakt…</Text>
+              )}
             </View>
             <Text style={styles.supportText}>Laat anderen deze code scannen om lid te worden van je team</Text>
           </View>
@@ -432,12 +437,16 @@ export default function ParentDashboardScreen({ currentUser, onLogout }: ParentD
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Deel de uitnodigingscode</Text>
             <View style={styles.codeBox}>
-              <Text style={styles.codeText}>{inviteCode}</Text>
+              <Text style={styles.codeText}>{inviteCode ?? '—'}</Text>
             </View>
 
             <View style={styles.inlineActions}>
               <Pressable
                 onPress={async () => {
+                  if (!inviteCode) {
+                    Alert.alert('Wachten', 'De uitnodiging wordt nog aangemaakt. Probeer het over een paar seconden opnieuw.');
+                    return;
+                  }
                   try {
                     await Clipboard.setStringAsync(inviteCode);
                     Alert.alert('Gekopieerd', 'De uitnodigingscode is gekopieerd naar het klembord.');
@@ -445,11 +454,11 @@ export default function ParentDashboardScreen({ currentUser, onLogout }: ParentD
                     Alert.alert('Fout', 'Kon de code niet kopiëren.');
                   }
                 }}
-                style={[styles.actionButton, styles.actionPrimary]}
+                style={[styles.actionButton, inviteCode ? styles.actionPrimary : styles.actionSecondary]}
               >
-                <Text style={styles.actionPrimaryText}>Kopieer Code</Text>
+                <Text style={inviteCode ? styles.actionPrimaryText : styles.actionSecondaryText}>Kopieer Code</Text>
               </Pressable>
-              <Pressable onPress={() => Linking.openURL(inviteLink)} style={[styles.actionButton, styles.actionSecondary]}>
+              <Pressable onPress={() => inviteLink && Linking.openURL(inviteLink)} style={[styles.actionButton, styles.actionSecondary]}>
                 <Text style={styles.actionSecondaryText}>Deel</Text>
               </Pressable>
             </View>
@@ -762,6 +771,9 @@ export default function ParentDashboardScreen({ currentUser, onLogout }: ParentD
               style={styles.modalInput}
               value={newPassword}
               onChangeText={setNewPassword}
+              autoComplete="off"
+              importantForAutofill="no"
+              textContentType="none"
             />
             <TextInput
               placeholder="Bevestig nieuw wachtwoord"
@@ -770,6 +782,9 @@ export default function ParentDashboardScreen({ currentUser, onLogout }: ParentD
               style={styles.modalInput}
               value={confirmNewPassword}
               onChangeText={setConfirmNewPassword}
+              autoComplete="off"
+              importantForAutofill="no"
+              textContentType="none"
             />
 
             <View style={{ flexDirection: 'row', gap: 8 }}>

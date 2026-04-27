@@ -121,14 +121,16 @@ export async function getFamilyChildren(familyId?: string) {
   return { data, error };
 }
 
-export async function createTeamInviteForCurrentFamily({ role = 'parent', expiresInDays = 7 } : { role?: string; expiresInDays?: number } = {}) {
+export async function createTeamInviteForCurrentFamily({ role = 'parent', expiresInDays = 7, code: providedCode }: { role?: string; expiresInDays?: number; code?: string } = {}) {
   const { family, error: famErr } = await getCurrentFamily();
   if (famErr) return { data: null, error: famErr };
   if (!family) return { data: null, error: new Error('Geen gezin gevonden voor huidige gebruiker') };
 
   const codeChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let code = '';
-  for (let i = 0; i < 10; i++) code += codeChars[Math.floor(Math.random() * codeChars.length)];
+  let code = providedCode ?? '';
+  if (!providedCode) {
+    for (let i = 0; i < 10; i++) code += codeChars[Math.floor(Math.random() * codeChars.length)];
+  }
 
   const expires_at = new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1000).toISOString();
 

@@ -96,6 +96,9 @@ function Field({ label, placeholder, icon, value, onChangeText }: FieldProps) {
           onChangeText={onChangeText}
           placeholder={placeholder}
           placeholderTextColor="#B8C7D4"
+          autoComplete="off"
+          importantForAutofill="no"
+          textContentType="none"
           style={styles.input}
           value={value}
         />

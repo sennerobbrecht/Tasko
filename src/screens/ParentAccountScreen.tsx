@@ -134,6 +134,9 @@ function Field({
           onChangeText={onChangeText}
           placeholder={placeholder}
           placeholderTextColor="#B8C7D4"
+          autoComplete="off"
+          importantForAutofill="no"
+          textContentType="none"
           secureTextEntry={secureTextEntry}
           style={styles.input}
           value={value}

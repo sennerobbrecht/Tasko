@@ -71,7 +71,17 @@ export default function ChildFamilyCodeScreen({ onBack, onContinue }: ChildFamil
         <Text style={styles.sectionHint}>Vul de code van je gezin in</Text>
 
         <View style={styles.inputShell}>
-          <TextInput placeholder="Vul je uitnodigingscode in" placeholderTextColor="#B8C7D4" style={styles.input} value={codeInput} onChangeText={setCodeInput} autoCapitalize="characters" />
+          <TextInput
+            placeholder="Vul je uitnodigingscode in"
+            placeholderTextColor="#B8C7D4"
+            style={styles.input}
+            value={codeInput}
+            onChangeText={setCodeInput}
+            autoCapitalize="characters"
+            autoComplete="off"
+            importantForAutofill="no"
+            textContentType="none"
+          />
         </View>
 
         <TouchableOpacity activeOpacity={0.9} onPress={() => onContinue?.(codeInput.trim())} style={styles.primaryButton}>
