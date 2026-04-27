@@ -87,3 +87,12 @@ export async function requestPasswordReset(email: string) {
     redirectTo: 'tasko://reset-password',
   });
 }
+
+export async function changePassword(newPassword: string) {
+  if (!newPassword || newPassword.length < 6) {
+    return { error: toError('Wachtwoord moet minstens 6 karakters hebben.'), data: null };
+  }
+
+  const { data, error } = await supabase.auth.updateUser({ password: newPassword });
+  return { data, error };
+}

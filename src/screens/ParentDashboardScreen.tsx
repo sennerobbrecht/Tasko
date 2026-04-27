@@ -41,6 +41,9 @@ export default function ParentDashboardScreen({ currentUser, onLogout }: ParentD
   const [showReadOnlyModal, setShowReadOnlyModal] = useState(false);
   const [showInviteScreen, setShowInviteScreen] = useState(false);
   const [showFamilyTeamSettings, setShowFamilyTeamSettings] = useState(false);
+  const [showVisibilitySettings, setShowVisibilitySettings] = useState(false);
+  const [showNotificationsSettings, setShowNotificationsSettings] = useState(false);
+  const [showAccountSupport, setShowAccountSupport] = useState(false);
   const [shareDuration, setShareDuration] = useState<ShareDuration>('24u');
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('school-week');
   const [dbRoutines, setDbRoutines] = useState<RoutineSummary[]>([]);
@@ -90,6 +93,140 @@ export default function ParentDashboardScreen({ currentUser, onLogout }: ParentD
     };
   }, []);
 
+  if (showVisibilitySettings) {
+    return (
+      <View style={styles.screen}>
+        <View style={[styles.header, styles.headerSky]}>
+          <Pressable onPress={() => setShowVisibilitySettings(false)} style={styles.headerBackButton}>
+            <Text style={styles.headerBackText}>← Terug</Text>
+          </Pressable>
+          <Text style={styles.headerTitle}>Zichtbaarheid & Toestemming</Text>
+          <Text style={styles.headerSubtitle}>Beheer je privacy instellingen</Text>
+        </View>
+
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Zichtbaarheid</Text>
+            
+            <SettingToggle label="Profiel zichtbaar voor team" defaultValue={true} />
+            <SettingToggle label="Voortgang zichtbaar" defaultValue={true} />
+            <SettingToggle label="Activiteitslogboek zichtbaar" defaultValue={false} />
+          </View>
+
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Toestemmingen</Text>
+            
+            <SettingToggle label="Teamleden kunnen taken maken" defaultValue={true} />
+            <SettingToggle label="Teamleden kunnen voortgang bewerken" defaultValue={true} />
+            <SettingToggle label="Teamleden kunnen instellingen wijzigen" defaultValue={false} />
+          </View>
+        </ScrollView>
+
+        <StatusBar style="dark" />
+      </View>
+    );
+  }
+
+  if (showNotificationsSettings) {
+    return (
+      <View style={styles.screen}>
+        <View style={[styles.header, styles.headerPurple]}>
+          <Pressable onPress={() => setShowNotificationsSettings(false)} style={styles.headerBackButton}>
+            <Text style={styles.headerBackText}>← Terug</Text>
+          </Pressable>
+          <Text style={styles.headerTitle}>Meldingen</Text>
+          <Text style={styles.headerSubtitle}>Pas je notificaties aan</Text>
+        </View>
+
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Taak Meldingen</Text>
+            
+            <SettingToggle label="Taak voltooid" defaultValue={true} />
+            <SettingToggle label="Taak gemist" defaultValue={true} />
+            <SettingToggle label="Routines bijgewerkt" defaultValue={true} />
+          </View>
+
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Team Meldingen</Text>
+            
+            <SettingToggle label="Teamlid toegevoegd" defaultValue={true} />
+            <SettingToggle label="Opmerkingen ontvangen" defaultValue={true} />
+            <SettingToggle label="Updates van team" defaultValue={false} />
+          </View>
+
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Pluim Meldingen</Text>
+            
+            <SettingToggle label="Behaald badge" defaultValue={true} />
+            <SettingToggle label="Streak voltooid" defaultValue={true} />
+          </View>
+        </ScrollView>
+
+        <StatusBar style="dark" />
+      </View>
+    );
+  }
+
+  if (showAccountSupport) {
+    return (
+      <View style={styles.screen}>
+        <View style={[styles.header, styles.headerPink]}>
+          <Pressable onPress={() => setShowAccountSupport(false)} style={styles.headerBackButton}>
+            <Text style={styles.headerBackText}>← Terug</Text>
+          </Pressable>
+          <Text style={styles.headerTitle}>Account & Support</Text>
+          <Text style={styles.headerSubtitle}>Help & Accountinstellingen</Text>
+        </View>
+
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Account Info</Text>
+            
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Email:</Text>
+              <Text style={styles.infoValue}>{currentUser?.email}</Text>
+            </View>
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Account Type:</Text>
+              <Text style={styles.infoValue}>Ouder / Begeleider</Text>
+            </View>
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Lid sinds:</Text>
+              <Text style={styles.infoValue}>April 27, 2026</Text>
+            </View>
+          </View>
+
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Wachtwoord & Beveiliging</Text>
+            
+            <Pressable style={[styles.actionButton, styles.actionSecondary]}>
+              <Text style={styles.actionSecondaryText}>Wachtwoord wijzigen</Text>
+            </Pressable>
+          </View>
+
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Hulp & Support</Text>
+            
+            <MenuRow label="Veelgestelde vragen" />
+            <MenuRow label="Contact Support" />
+            <MenuRow label="Verzend Feedback" />
+          </View>
+
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Gevaarlijk Gebied</Text>
+            
+            <Pressable style={[styles.actionButton, { backgroundColor: '#FFE5EA', marginTop: 8 }]}>
+              <Text style={{ color: '#D84C63', fontSize: 14, fontWeight: '700' }}>Account Verwijderen</Text>
+            </Pressable>
+          </View>
+        </ScrollView>
+
+        <StatusBar style="dark" />
+      </View>
+    );
+  }
+
   if (showFamilyTeamSettings) {
     return (
       <View style={styles.screen}>
@@ -111,10 +248,6 @@ export default function ParentDashboardScreen({ currentUser, onLogout }: ParentD
               <Text style={styles.memberEmail}>{currentUser?.email}</Text>
               <Text style={styles.memberRole}>Eigenaar</Text>
             </View>
-
-            <Pressable style={[styles.actionButton, styles.actionSecondary]}>
-              <Text style={styles.actionSecondaryText}>+ Ouder toevoegen</Text>
-            </Pressable>
           </View>
 
           <View style={styles.card}>
@@ -127,7 +260,10 @@ export default function ParentDashboardScreen({ currentUser, onLogout }: ParentD
               <Text style={styles.memberRole}>Actief</Text>
             </View>
 
-            <Pressable style={[styles.actionButton, styles.actionSecondary]}>
+            <Pressable onPress={() => {
+              setShowFamilyTeamSettings(false);
+              setShowInviteScreen(true);
+            }} style={[styles.actionButton, styles.actionSecondary]}>
               <Text style={styles.actionSecondaryText}>+ Kind toevoegen</Text>
             </Pressable>
           </View>
@@ -416,9 +552,9 @@ export default function ParentDashboardScreen({ currentUser, onLogout }: ParentD
 
             <View style={styles.card}>
               <Text style={styles.sectionTitle}>Preferences</Text>
-              <MenuRow label="Visibility & Permissions" />
-              <MenuRow label="Notifications" />
-              <MenuRow label="Account & Support" />
+              <MenuRow label="Visibility & Permissions" onPress={() => setShowVisibilitySettings(true)} />
+              <MenuRow label="Notifications" onPress={() => setShowNotificationsSettings(true)} />
+              <MenuRow label="Account & Support" onPress={() => setShowAccountSupport(true)} />
             </View>
 
             <Pressable onPress={onLogout} style={[styles.actionButton, styles.logoutButton]}>
@@ -525,6 +661,19 @@ function MenuRow({ label, onPress }: { label: string; onPress?: () => void }) {
       <Text style={styles.menuLabel}>{label}</Text>
       <Text style={styles.menuArrow}>›</Text>
     </Pressable>
+  );
+}
+
+function SettingToggle({ label, defaultValue }: { label: string; defaultValue: boolean }) {
+  const [enabled, setEnabled] = useState(defaultValue);
+  
+  return (
+    <View style={styles.settingToggleRow}>
+      <Text style={styles.settingToggleLabel}>{label}</Text>
+      <Pressable onPress={() => setEnabled(!enabled)} style={[styles.toggleSwitch, enabled && styles.toggleSwitchEnabled]}>
+        <View style={[styles.toggleCircle, enabled && styles.toggleCircleEnabled]} />
+      </Pressable>
+    </View>
   );
 }
 
@@ -1016,6 +1165,57 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: 6,
     alignSelf: 'flex-start',
+  },
+  infoRow: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#E8F0F3',
+    paddingVertical: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  infoLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#8794A4',
+  },
+  infoValue: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textStrong,
+  },
+  settingToggleRow: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#E8F0F3',
+    paddingVertical: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  settingToggleLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textStrong,
+  },
+  toggleSwitch: {
+    width: 48,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#E1ECF0',
+    justifyContent: 'center',
+    paddingHorizontal: 2,
+  },
+  toggleSwitchEnabled: {
+    backgroundColor: '#42C7D5',
+  },
+  toggleCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.white,
+  },
+  toggleCircleEnabled: {
+    alignSelf: 'flex-end',
   },
   actionButton: {
     minHeight: 46,
