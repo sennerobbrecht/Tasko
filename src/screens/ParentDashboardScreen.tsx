@@ -40,6 +40,7 @@ export default function ParentDashboardScreen({ currentUser, onLogout }: ParentD
   const [activeTab, setActiveTab] = useState<ParentTab>('home');
   const [showReadOnlyModal, setShowReadOnlyModal] = useState(false);
   const [showInviteScreen, setShowInviteScreen] = useState(false);
+  const [showFamilyTeamSettings, setShowFamilyTeamSettings] = useState(false);
   const [shareDuration, setShareDuration] = useState<ShareDuration>('24u');
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('school-week');
   const [dbRoutines, setDbRoutines] = useState<RoutineSummary[]>([]);
@@ -88,6 +89,61 @@ export default function ParentDashboardScreen({ currentUser, onLogout }: ParentD
       isMounted = false;
     };
   }, []);
+
+  if (showFamilyTeamSettings) {
+    return (
+      <View style={styles.screen}>
+        <View style={[styles.header, styles.headerMint]}>
+          <Pressable onPress={() => setShowFamilyTeamSettings(false)} style={styles.headerBackButton}>
+            <Text style={styles.headerBackText}>← Terug</Text>
+          </Pressable>
+          <Text style={styles.headerTitle}>Family & Team</Text>
+          <Text style={styles.headerSubtitle}>Beheer je familie en teamleden</Text>
+        </View>
+
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Gezinsleden</Text>
+            <Text style={styles.subtleText}>Ouders en begeleiders</Text>
+            
+            <View style={styles.memberItem}>
+              <Text style={styles.memberName}>👤 {currentUser?.name || 'Jij'}</Text>
+              <Text style={styles.memberEmail}>{currentUser?.email}</Text>
+              <Text style={styles.memberRole}>Eigenaar</Text>
+            </View>
+
+            <Pressable style={[styles.actionButton, styles.actionSecondary]}>
+              <Text style={styles.actionSecondaryText}>+ Ouder toevoegen</Text>
+            </Pressable>
+          </View>
+
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Jouw Kinderen</Text>
+            <Text style={styles.subtleText}>Kids die je beheert</Text>
+            
+            <View style={styles.memberItem}>
+              <Text style={styles.memberName}>👧 Emma</Text>
+              <Text style={styles.memberEmail}>Voortgang: 80%</Text>
+              <Text style={styles.memberRole}>Actief</Text>
+            </View>
+
+            <Pressable style={[styles.actionButton, styles.actionSecondary]}>
+              <Text style={styles.actionSecondaryText}>+ Kind toevoegen</Text>
+            </Pressable>
+          </View>
+
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Teaminstellingen</Text>
+            <MenuRow label="Privacy & Zichtbaarheid" />
+            <MenuRow label="Toestemmingen" />
+            <MenuRow label="Data opslag" />
+          </View>
+        </ScrollView>
+
+        <StatusBar style="dark" />
+      </View>
+    );
+  }
 
   if (showInviteScreen) {
     const inviteCode = `TASKO-${currentUser?.id?.slice(0, 8).toUpperCase() || 'XXXX'}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
@@ -354,7 +410,7 @@ export default function ParentDashboardScreen({ currentUser, onLogout }: ParentD
 
             <View style={styles.card}>
               <Text style={styles.sectionTitle}>Account</Text>
-              <MenuRow label="Family & Team Settings" onPress={() => setShowInviteScreen(true)} />
+              <MenuRow label="Family & Team Settings" onPress={() => setShowFamilyTeamSettings(true)} />
               <MenuRow label="Invite to Team" onPress={() => setShowInviteScreen(true)} />
             </View>
 
@@ -931,6 +987,35 @@ const styles = StyleSheet.create({
   menuArrow: {
     color: '#A2AFBC',
     fontSize: 20,
+  },
+  memberItem: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E1ECF0',
+    backgroundColor: '#F8FCFD',
+    padding: 14,
+    marginVertical: 8,
+  },
+  memberName: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: colors.textStrong,
+    marginBottom: 4,
+  },
+  memberEmail: {
+    fontSize: 13,
+    color: '#8794A4',
+    marginBottom: 4,
+  },
+  memberRole: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#42C7D5',
+    backgroundColor: '#E6FBFD',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
   },
   actionButton: {
     minHeight: 46,

@@ -16,6 +16,8 @@ export default function ParentAccountScreen({ onBack, onLogin, onSubmit }: Paren
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -63,18 +65,22 @@ export default function ParentAccountScreen({ onBack, onLogin, onSubmit }: Paren
           <Field
             label="Wachtwoord"
             placeholder="Minimaal 6 karakters"
-            secureTextEntry
+            secureTextEntry={!showPassword}
             value={password}
             onChangeText={setPassword}
             autoCapitalize="none"
+            onTogglePasswordVisibility={() => setShowPassword(!showPassword)}
+            showPassword={showPassword}
           />
           <Field
             label="Bevestig wachtwoord"
             placeholder="Herhaal je wachtwoord"
-            secureTextEntry
+            secureTextEntry={!showConfirmPassword}
             value={confirmPassword}
             onChangeText={setConfirmPassword}
             autoCapitalize="none"
+            onTogglePasswordVisibility={() => setShowConfirmPassword(!showConfirmPassword)}
+            showPassword={showConfirmPassword}
           />
         </View>
 
@@ -103,9 +109,21 @@ type FieldProps = {
   onChangeText: (text: string) => void;
   keyboardType?: 'default' | 'email-address';
   autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
+  onTogglePasswordVisibility?: () => void;
+  showPassword?: boolean;
 };
 
-function Field({ label, placeholder, secureTextEntry, value, onChangeText, keyboardType, autoCapitalize }: FieldProps) {
+function Field({
+  label,
+  placeholder,
+  secureTextEntry,
+  value,
+  onChangeText,
+  keyboardType,
+  autoCapitalize,
+  onTogglePasswordVisibility,
+  showPassword,
+}: FieldProps) {
   return (
     <View style={styles.fieldGroup}>
       <Text style={styles.fieldLabel}>{label}</Text>
@@ -120,6 +138,11 @@ function Field({ label, placeholder, secureTextEntry, value, onChangeText, keybo
           style={styles.input}
           value={value}
         />
+        {secureTextEntry !== undefined && onTogglePasswordVisibility ? (
+          <Pressable onPress={onTogglePasswordVisibility} style={styles.eyeButton}>
+            <Text style={styles.eyeIcon}>{showPassword ? '👁️' : '👁️‍🗨️'}</Text>
+          </Pressable>
+        ) : null}
       </View>
     </View>
   );
@@ -210,6 +233,8 @@ const styles = StyleSheet.create({
     borderColor: '#BFEAF0',
     backgroundColor: colors.white,
     justifyContent: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
     shadowColor: colors.shadow,
     shadowOpacity: 0.08,
     shadowRadius: 12,
@@ -217,10 +242,20 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   input: {
+    flex: 1,
     paddingHorizontal: 24,
     paddingVertical: 18,
     fontSize: 18,
     color: colors.textStrong,
+    backgroundColor: colors.white,
+  },
+  eyeButton: {
+    paddingRight: 16,
+    paddingLeft: 8,
+  },
+  eyeIcon: {
+    fontSize: 18,
+    color: '#96A2B0',
   },
   submitButton: {
     minHeight: 78,

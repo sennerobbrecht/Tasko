@@ -250,16 +250,9 @@ export default function App() {
 						return error.message;
 					}
 
-					if (needsEmailConfirmation) {
-						Alert.alert('Account aangemaakt!', 'Welkom! Log nu in met je gegevens.', [
-							{ text: 'OK', onPress: () => setScreen('login') },
-						]);
-						return null;
-					}
-
-					await ensureFamilyForCurrentUser();
-					setCurrentUser({ id: '', email, name });
-					setScreen('parentDashboard');
+					Alert.alert('Account aangemaakt!', 'Welkom! Log nu in met je gegevens.', [
+						{ text: 'OK', onPress: () => setScreen('welcome') },
+					]);
 					return null;
 				}}
 			/>

@@ -15,6 +15,7 @@ type LoginScreenProps = {
 export default function LoginScreen({ onBack, onForgotPassword, onRegister, onSubmit }: LoginScreenProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -65,11 +66,12 @@ export default function LoginScreen({ onBack, onForgotPassword, onRegister, onSu
             label="Wachtwoord"
             placeholder="Voer je wachtwoord in"
             icon="🔒"
-            trailingIcon="◔"
-            secureTextEntry
+            secureTextEntry={!showPassword}
             value={password}
             onChangeText={setPassword}
             editable={!isSubmitting}
+            onTogglePasswordVisibility={() => setShowPassword(!showPassword)}
+            showPassword={showPassword}
           />
 
           <Pressable onPress={onForgotPassword} style={styles.forgotButton}>
@@ -106,6 +108,8 @@ type FieldProps = {
   autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
   autoFocus?: boolean;
   editable?: boolean;
+  onTogglePasswordVisibility?: () => void;
+  showPassword?: boolean;
 };
 
 function Field({
@@ -120,6 +124,8 @@ function Field({
   autoCapitalize,
   autoFocus,
   editable,
+  onTogglePasswordVisibility,
+  showPassword,
 }: FieldProps) {
   return (
     <View style={styles.fieldGroup}>
@@ -139,7 +145,13 @@ function Field({
           style={styles.input}
           value={value}
         />
-        {trailingIcon ? <Text style={styles.trailingIcon}>{trailingIcon}</Text> : null}
+        {secureTextEntry !== undefined && onTogglePasswordVisibility ? (
+          <Pressable onPress={onTogglePasswordVisibility} style={styles.eyeButton}>
+            <Text style={styles.eyeIcon}>{showPassword ? '👁️' : '👁️‍🗨️'}</Text>
+          </Pressable>
+        ) : trailingIcon ? (
+          <Text style={styles.trailingIcon}>{trailingIcon}</Text>
+        ) : null}
       </View>
     </View>
   );
@@ -161,8 +173,10 @@ const styles = StyleSheet.create({
   fieldLabel: { color: colors.textStrong, fontSize: 18, lineHeight: 22, fontWeight: '800' },
   inputShell: { minHeight: 72, borderRadius: 24, borderWidth: 2, borderColor: '#BFEAF0', backgroundColor: colors.white, alignItems: 'center', flexDirection: 'row', paddingHorizontal: 18, gap: 12, shadowColor: colors.shadow, shadowOpacity: 0.08, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 3 },
   fieldIcon: { fontSize: 22, color: '#96A2B0' },
-  input: { flex: 1, minHeight: 48, fontSize: 18, color: colors.textStrong, paddingVertical: 0 },
+  input: { flex: 1, minHeight: 48, fontSize: 18, color: colors.textStrong, paddingVertical: 0, backgroundColor: colors.white },
   trailingIcon: { fontSize: 18, color: '#96A2B0' },
+  eyeButton: { padding: 4 },
+  eyeIcon: { fontSize: 18, color: '#96A2B0' },
   forgotButton: { alignSelf: 'flex-end', paddingVertical: 4 },
   forgotText: { color: '#42C7D5', fontSize: 16, fontWeight: '700' },
   errorText: { marginTop: 16, color: '#D84C63', fontSize: 14, lineHeight: 20, textAlign: 'center', fontWeight: '600' },
