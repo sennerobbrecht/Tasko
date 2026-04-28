@@ -1,8 +1,9 @@
 import { useState } from 'react';
 
 import { StatusBar } from 'expo-status-bar';
-import { Pressable, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+import FormField from '../components/FormField';
 import colors from '../theme/colors';
 
 type ParentAccountScreenProps = {
@@ -37,11 +38,11 @@ export default function ParentAccountScreen({ onBack, onLogin, onSubmit }: Paren
   }
 
   return (
-    <View style={styles.screen}>
+    <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={styles.backgroundTop} />
       <View style={styles.backgroundBottom} />
 
-      <View style={styles.content}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <TouchableOpacity activeOpacity={0.75} hitSlop={16} onPress={onBack} style={styles.backRow}>
           <Text style={styles.backIcon}>←</Text>
           <Text style={styles.backText}>Terug</Text>
@@ -53,16 +54,18 @@ export default function ParentAccountScreen({ onBack, onLogin, onSubmit }: Paren
         </View>
 
         <View style={styles.form}>
-          <Field label="Naam" placeholder="Voer je naam in" value={name} onChangeText={setName} />
-          <Field
+          <FormField label="Naam" placeholder="Voer je naam in" value={name} onChangeText={setName} shellStyle={styles.largeInputShell} inputStyle={styles.largeInput} />
+          <FormField
             label="Email"
             placeholder="voorbeeld@email.com"
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
             autoCapitalize="none"
+            shellStyle={styles.largeInputShell}
+            inputStyle={styles.largeInput}
           />
-          <Field
+          <FormField
             label="Wachtwoord"
             placeholder="Minimaal 6 karakters"
             secureTextEntry={!showPassword}
@@ -71,8 +74,10 @@ export default function ParentAccountScreen({ onBack, onLogin, onSubmit }: Paren
             autoCapitalize="none"
             onTogglePasswordVisibility={() => setShowPassword(!showPassword)}
             showPassword={showPassword}
+            shellStyle={styles.largeInputShell}
+            inputStyle={styles.largeInput}
           />
-          <Field
+          <FormField
             label="Bevestig wachtwoord"
             placeholder="Herhaal je wachtwoord"
             secureTextEntry={!showConfirmPassword}
@@ -81,6 +86,8 @@ export default function ParentAccountScreen({ onBack, onLogin, onSubmit }: Paren
             autoCapitalize="none"
             onTogglePasswordVisibility={() => setShowConfirmPassword(!showConfirmPassword)}
             showPassword={showConfirmPassword}
+            shellStyle={styles.largeInputShell}
+            inputStyle={styles.largeInput}
           />
         </View>
 
@@ -94,60 +101,10 @@ export default function ParentAccountScreen({ onBack, onLogin, onSubmit }: Paren
           <Text style={styles.footerText}>Heb je al een account? </Text>
           <Text style={styles.footerLink}>Inloggen</Text>
         </Pressable>
-      </View>
 
-      <StatusBar style="dark" />
-    </View>
-  );
-}
-
-type FieldProps = {
-  label: string;
-  placeholder: string;
-  secureTextEntry?: boolean;
-  value: string;
-  onChangeText: (text: string) => void;
-  keyboardType?: 'default' | 'email-address';
-  autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
-  onTogglePasswordVisibility?: () => void;
-  showPassword?: boolean;
-};
-
-function Field({
-  label,
-  placeholder,
-  secureTextEntry,
-  value,
-  onChangeText,
-  keyboardType,
-  autoCapitalize,
-  onTogglePasswordVisibility,
-  showPassword,
-}: FieldProps) {
-  return (
-    <View style={styles.fieldGroup}>
-      <Text style={styles.fieldLabel}>{label}</Text>
-      <View style={styles.inputShell}>
-        <TextInput
-          autoCapitalize={autoCapitalize}
-          keyboardType={keyboardType}
-          onChangeText={onChangeText}
-          placeholder={placeholder}
-          placeholderTextColor="#B8C7D4"
-          autoComplete="off"
-          importantForAutofill="no"
-          textContentType="none"
-          secureTextEntry={secureTextEntry}
-          style={styles.input}
-          value={value}
-        />
-        {secureTextEntry !== undefined && onTogglePasswordVisibility ? (
-          <Pressable onPress={onTogglePasswordVisibility} style={styles.eyeButton}>
-            <Text style={styles.eyeIcon}>{showPassword ? '👁️' : '👁️‍🗨️'}</Text>
-          </Pressable>
-        ) : null}
-      </View>
-    </View>
+        <StatusBar style="dark" />
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -157,7 +114,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   content: {
-    flex: 1,
+    flexGrow: 1,
     paddingTop: 40,
     paddingHorizontal: 24,
     paddingBottom: 18,
@@ -220,45 +177,13 @@ const styles = StyleSheet.create({
   form: {
     gap: 20,
   },
-  fieldGroup: {
-    gap: 10,
-  },
-  fieldLabel: {
-    color: colors.textStrong,
-    fontSize: 18,
-    lineHeight: 22,
-    fontWeight: '800',
-  },
-  inputShell: {
+  largeInputShell: {
     minHeight: 78,
     borderRadius: 22,
-    borderWidth: 2,
-    borderColor: '#BFEAF0',
-    backgroundColor: colors.white,
-    justifyContent: 'center',
-    flexDirection: 'row',
-    alignItems: 'center',
-    shadowColor: colors.shadow,
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 3,
   },
-  input: {
-    flex: 1,
+  largeInput: {
     paddingHorizontal: 24,
     paddingVertical: 18,
-    fontSize: 18,
-    color: colors.textStrong,
-    backgroundColor: colors.white,
-  },
-  eyeButton: {
-    paddingRight: 16,
-    paddingLeft: 8,
-  },
-  eyeIcon: {
-    fontSize: 18,
-    color: '#96A2B0',
   },
   submitButton: {
     minHeight: 78,

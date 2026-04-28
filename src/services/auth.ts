@@ -32,21 +32,21 @@ export async function signInParent(email: string, password: string): Promise<Aut
   return { error };
 }
 
-export async function signUpParent(name: string, email: string, password: string): Promise<{ error: Error | null; needsEmailConfirmation: boolean }> {
+export async function signUpParent(name: string, email: string, password: string): Promise<{ error: Error | null; needsEmailConfirmation: boolean; user: any }> {
   const normalizedEmail = normalizeEmail(email);
   const cleanName = name.trim();
   const cleanPassword = password.trim();
 
   if (!cleanName) {
-    return { error: toError('Vul je naam in.'), needsEmailConfirmation: false };
+    return { error: toError('Vul je naam in.'), needsEmailConfirmation: false, user: null };
   }
 
   if (!normalizedEmail) {
-    return { error: toError('Vul een geldig e-mailadres in.'), needsEmailConfirmation: false };
+    return { error: toError('Vul een geldig e-mailadres in.'), needsEmailConfirmation: false, user: null };
   }
 
   if (cleanPassword.length < 6) {
-    return { error: toError('Wachtwoord moet minstens 6 karakters hebben.'), needsEmailConfirmation: false };
+    return { error: toError('Wachtwoord moet minstens 6 karakters hebben.'), needsEmailConfirmation: false, user: null };
   }
 
   const { data, error } = await supabase.auth.signUp({
@@ -60,7 +60,7 @@ export async function signUpParent(name: string, email: string, password: string
   });
 
   const needsEmailConfirmation = !!data.user && !data.session;
-  return { error, needsEmailConfirmation };
+  return { error, needsEmailConfirmation, user: data.user };
 }
 
 export async function signOutCurrentUser(): Promise<AuthErrorResult> {

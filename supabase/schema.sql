@@ -156,6 +156,50 @@ as $$
 $$;
 
 alter table public.families enable row level security;
+create or replace function public.create_family_for_current_user(family_name text default 'Mijn Gezin')
+returns table(family_id uuid, error_message text)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_user_id uuid;
+  v_family_id uuid;
+  v_error text := null;
+begin
+  -- Get current user
+  v_user_id := auth.uid();
+  if v_user_id is null then
+    return query select null::uuid as family_id, 'Geen ingelogde gebruiker'::text as error_message;
+    return;
+  end if;
+
+  -- Create family
+  begin
+    insert into public.families (name, owner_user_id)
+    values (family_name, v_user_id)
+    returning id into v_family_id;
+  exception when others then
+    v_error := SQLERRM;
+    return query select null::uuid as family_id, v_error::text as error_message;
+    return;
+  end;
+
+  -- Add user as owner in family_members
+  begin
+    insert into public.family_members (family_id, user_id, role)
+    values (v_family_id, v_user_id, 'owner');
+  exception when others then
+    v_error := SQLERRM;
+    return query select null::uuid as family_id, v_error::text as error_message;
+    return;
+  end;
+
+  return query select v_family_id as family_id, null::text as error_message;
+end;
+$$;
+
+alter table public.families enable row level security;
 alter table public.family_members enable row level security;
 alter table public.child_profiles enable row level security;
 alter table public.routines enable row level security;
@@ -307,5 +351,63 @@ as $$
   select id, family_id, code, role, expires_at, created_by_user_id, used_at, used_by_user_id, created_at
   from public.team_invites
   where code = p_code
+  limit 1;
+$$;
+
+create or replace function public.create_child_profile_from_invite(
+  p_code text,
+  p_display_name text,
+  p_birth_year int default null
+)
+returns table(id uuid, display_name text)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_family_id uuid;
+begin
+  if p_code is null or btrim(p_code) = '' then
+    raise exception 'Ongeldige code';
+  end if;
+
+  if p_display_name is null or btrim(p_display_name) = '' then
+    raise exception 'Kies een gebruikersnaam';
+  end if;
+
+  select ti.family_id
+    into v_family_id
+  from public.team_invites ti
+  where ti.code = p_code
+    and ti.expires_at > now()
+  limit 1;
+
+  if v_family_id is null then
+    raise exception 'Code is verlopen of ongeldig';
+  end if;
+
+  return query
+  insert into public.child_profiles (family_id, display_name, birth_year)
+  values (v_family_id, btrim(p_display_name), p_birth_year)
+  returning child_profiles.id, child_profiles.display_name;
+end;
+$$;
+
+create or replace function public.find_child_profile_by_invite_code(
+  p_code text,
+  p_display_name text
+)
+returns table(id uuid, display_name text)
+language sql
+security definer
+set search_path = public
+as $$
+  select cp.id, cp.display_name
+  from public.team_invites ti
+  join public.child_profiles cp on cp.family_id = ti.family_id
+  where ti.code = p_code
+    and ti.expires_at > now()
+    and lower(cp.display_name) = lower(p_display_name)
+  order by cp.created_at desc
   limit 1;
 $$;

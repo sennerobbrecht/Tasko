@@ -1,10 +1,9 @@
 import { StatusBar } from 'expo-status-bar';
-import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import colors from '../theme/colors';
 
 import { useState } from 'react';
-import { Alert } from 'react-native';
 import { createChildFromInvite } from '../services/families';
 
 type ChildProfileSetupScreenProps = {
@@ -17,7 +16,7 @@ export default function ChildProfileSetupScreen({ onBack, onContinue, inviteCode
   const [username, setUsername] = useState('');
   const [creating, setCreating] = useState(false);
   return (
-    <View style={styles.screen}>
+    <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <TouchableOpacity activeOpacity={0.7} hitSlop={16} onPress={onBack} style={styles.backButton}>
           <Text style={styles.backArrow}>←</Text>
@@ -84,7 +83,7 @@ export default function ChildProfileSetupScreen({ onBack, onContinue, inviteCode
       </ScrollView>
 
       <StatusBar style="dark" />
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -200,7 +199,7 @@ const styles = StyleSheet.create({
     minHeight: 78,
     borderRadius: 22,
     borderWidth: 2,
-    borderColor: '#BFEAF0',
+    borderColor: '#DDECF0',
     backgroundColor: colors.white,
     justifyContent: 'center',
     shadowColor: colors.shadow,

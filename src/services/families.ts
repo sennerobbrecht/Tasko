@@ -66,41 +66,41 @@ export async function ensureFamilyForCurrentUser(defaultFamilyName = 'Mijn Gezin
     return { error: null, family: existing.family };
   }
 
-  const { data: authData, error: authError } = await supabase.auth.getUser();
-  if (authError || !authData.user) {
-    return { error: authError ?? new Error('Geen ingelogde gebruiker gevonden.'), family: null as Family | null };
+  // Use PostgreSQL function to bypass RLS
+  const { data, error: functionError } = await supabase.rpc('create_family_for_current_user', {
+    family_name: defaultFamilyName,
+  });
+
+  if (functionError) {
+    return { error: functionError, family: null as Family | null };
   }
 
-  const userId = authData.user.id;
-  const { data: insertedFamily, error: insertFamilyError } = await supabase
+  if (!data || data.length === 0) {
+    return { error: new Error('Kon gezin niet aanmaken.'), family: null as Family | null };
+  }
+
+  const result = data[0] as { family_id: string; error_message: string | null };
+
+  if (result.error_message) {
+    return { error: new Error(result.error_message), family: null as Family | null };
+  }
+
+  if (!result.family_id) {
+    return { error: new Error('Kon gezin niet aanmaken.'), family: null as Family | null };
+  }
+
+  // Fetch the created family
+  const { data: createdFamily, error: fetchError } = await supabase
     .from('families')
-    .insert({
-      name: defaultFamilyName,
-      owner_user_id: userId,
-    })
     .select('id,name')
+    .eq('id', result.family_id)
     .single();
 
-  if (insertFamilyError || !insertedFamily) {
-    return { error: insertFamilyError ?? new Error('Kon geen gezin aanmaken.'), family: null as Family | null };
+  if (fetchError || !createdFamily) {
+    return { error: fetchError ?? new Error('Kon gezin niet ophalen.'), family: null as Family | null };
   }
 
-  const { error: memberError } = await supabase
-    .from('family_members')
-    .upsert(
-      {
-        family_id: insertedFamily.id,
-        user_id: userId,
-        role: 'owner',
-      },
-      { onConflict: 'family_id,user_id' },
-    );
-
-  if (memberError) {
-    return { error: memberError, family: null as Family | null };
-  }
-
-  return { error: null, family: insertedFamily as Family };
+  return { error: null, family: createdFamily as Family };
 }
 
 export async function getFamilyChildren(familyId?: string) {
@@ -170,12 +170,47 @@ export async function acceptTeamInvite(code: string) {
 }
 
 export async function createChildFromInvite(code: string, displayName: string, birthYear?: number) {
-  const { data: inviteRows, error: rpcErr } = await supabase.rpc('get_team_invite_by_code', { p_code: code });
-  if (rpcErr) return { error: rpcErr, data: null };
-  if (!inviteRows || (Array.isArray(inviteRows) && inviteRows.length === 0)) return { error: new Error('Ongeldige code'), data: null };
-  const invite = Array.isArray(inviteRows) ? inviteRows[0] as any : (inviteRows as any);
-  if (new Date(invite.expires_at) < new Date()) return { error: new Error('Code is verlopen'), data: null };
+  const { data, error } = await supabase.rpc('create_child_profile_from_invite', {
+    p_code: code,
+    p_display_name: displayName,
+    p_birth_year: birthYear ?? null,
+  });
 
-  const { data, error } = await supabase.from('child_profiles').insert({ family_id: invite.family_id, display_name: displayName, birth_year: birthYear ?? null }).select('id,display_name').single();
-  return { error, data };
+  if (error) {
+    return { error, data: null };
+  }
+
+  if (!data || data.length === 0) {
+    return { error: new Error('Kon kind niet aanmaken.'), data: null };
+  }
+
+  return { error: null, data: data[0] as { id: string; display_name: string } };
+}
+
+export async function loginChildWithCodeAndName(code: string, displayName: string) {
+  const trimmedCode = code.trim();
+  const trimmedName = displayName.trim();
+
+  if (!trimmedCode) {
+    return { error: new Error('Vul de gezinscode in.'), data: null };
+  }
+
+  if (!trimmedName) {
+    return { error: new Error('Vul je gebruikersnaam in.'), data: null };
+  }
+
+  const { data, error } = await supabase.rpc('find_child_profile_by_invite_code', {
+    p_code: trimmedCode,
+    p_display_name: trimmedName,
+  });
+
+  if (error) {
+    return { error, data: null };
+  }
+
+  if (!data || data.length === 0) {
+    return { error: new Error('Geen kindprofiel gevonden met deze code en gebruikersnaam.'), data: null };
+  }
+
+  return { error: null, data: data[0] as { id: string; display_name: string } };
 }

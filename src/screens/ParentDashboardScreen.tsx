@@ -72,11 +72,44 @@ export default function ParentDashboardScreen({ currentUser, onLogout }: ParentD
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
   const [changingPassword, setChangingPassword] = useState(false);
+  const [dashboardUser, setDashboardUser] = useState<User | null>(currentUser ?? null);
+  const [authUserId, setAuthUserId] = useState<string | null>(currentUser?.id ?? null);
+  const [accountRoleLabel, setAccountRoleLabel] = useState('Ouder');
+  const [memberSinceLabel, setMemberSinceLabel] = useState('-');
+  const [todayCompletions, setTodayCompletions] = useState(0);
+  const [weekCompletions, setWeekCompletions] = useState(0);
+  const [streakDays, setStreakDays] = useState(0);
+  const [completionsLoading, setCompletionsLoading] = useState(true);
 
   const selectedTemplate = useMemo(
     () => TEMPLATES.find((template) => template.id === selectedTemplateId) ?? TEMPLATES[0],
     [selectedTemplateId],
   );
+
+  const totalTaskCount = useMemo(
+    () => dbRoutines.reduce((sum, routine) => sum + routine.routine_tasks.length, 0),
+    [dbRoutines],
+  );
+
+  const todayProgressPercent = useMemo(() => {
+    if (totalTaskCount <= 0) {
+      return 0;
+    }
+
+    return Math.min(100, Math.round((todayCompletions / totalTaskCount) * 100));
+  }, [todayCompletions, totalTaskCount]);
+
+  const weekFocusPercent = useMemo(() => {
+    if (totalTaskCount <= 0) {
+      return 0;
+    }
+
+    const weeklyCapacity = totalTaskCount * 7;
+    return Math.min(100, Math.round((weekCompletions / weeklyCapacity) * 100));
+  }, [weekCompletions, totalTaskCount]);
+
+  const displayName = dashboardUser?.name?.trim() || 'Ouder';
+  const displayEmail = dashboardUser?.email || '—';
 
   useEffect(() => {
     let isMounted = true;
@@ -251,6 +284,73 @@ export default function ParentDashboardScreen({ currentUser, onLogout }: ParentD
     }
   }
 
+  const renderSupportModals = () => (
+    <>
+      <Modal transparent visible={showFAQModal} animationType="slide" onRequestClose={() => setShowFAQModal(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCardLarge}>
+            <Text style={styles.modalTitle}>Veelgestelde vragen</Text>
+            <ScrollView style={{ maxHeight: 360 }}>
+              <Text style={styles.faqQuestion}>Hoe voeg ik een kind toe?</Text>
+              <Text style={styles.faqAnswer}>Gebruik 'Invite to Team' om een ouder of begeleider uit te nodigen. De ander kan de uitnodiging gebruiken om gekoppeld te worden.</Text>
+
+              <Text style={styles.faqQuestion}>Wat doet 'Visibility'?</Text>
+              <Text style={styles.faqAnswer}>Je bepaalt welke informatie teamleden kunnen zien, zoals voortgang en activiteiten.</Text>
+
+              <Text style={styles.faqQuestion}>Kan ik mijn wachtwoord wijzigen?</Text>
+              <Text style={styles.faqAnswer}>Ja - kies 'Wachtwoord wijzigen' in Account & Support en voer een nieuw wachtwoord in.</Text>
+            </ScrollView>
+
+            <Pressable onPress={() => setShowFAQModal(false)} style={styles.generateButton}>
+              <Text style={styles.generateButtonText}>Sluiten</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal transparent visible={showChangePasswordModal} animationType="slide" onRequestClose={() => setShowChangePasswordModal(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCardLarge}>
+            <Text style={styles.modalTitle}>Wachtwoord wijzigen</Text>
+            <Text style={styles.modalSubtitle}>Voer een nieuw wachtwoord in</Text>
+
+            <TextInput
+              placeholder="Nieuw wachtwoord"
+              placeholderTextColor="#B8C7D4"
+              secureTextEntry
+              style={styles.modalInput}
+              value={newPassword}
+              onChangeText={setNewPassword}
+              autoComplete="off"
+              importantForAutofill="no"
+              textContentType="none"
+            />
+            <TextInput
+              placeholder="Bevestig nieuw wachtwoord"
+              placeholderTextColor="#B8C7D4"
+              secureTextEntry
+              style={styles.modalInput}
+              value={confirmNewPassword}
+              onChangeText={setConfirmNewPassword}
+              autoComplete="off"
+              importantForAutofill="no"
+              textContentType="none"
+            />
+
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <Pressable onPress={() => setShowChangePasswordModal(false)} style={[styles.actionButton, styles.actionSecondary]}>
+                <Text style={styles.actionSecondaryText}>Annuleer</Text>
+              </Pressable>
+              <Pressable onPress={handleChangePassword} style={[styles.actionButton, styles.actionPrimary]}>
+                <Text style={styles.actionPrimaryText}>{changingPassword ? 'Bezig...' : 'Opslaan'}</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </>
+  );
+
   if (showVisibilitySettings) {
     return (
       <View style={styles.screen}>
@@ -379,6 +479,8 @@ export default function ParentDashboardScreen({ currentUser, onLogout }: ParentD
             </Pressable>
           </View>
         </ScrollView>
+
+        {renderSupportModals()}
 
         <StatusBar style="dark" />
       </View>
@@ -795,68 +897,7 @@ export default function ParentDashboardScreen({ currentUser, onLogout }: ParentD
         </View>
       </Modal>
 
-      <Modal transparent visible={showFAQModal} animationType="slide" onRequestClose={() => setShowFAQModal(false)}>
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCardLarge}>
-            <Text style={styles.modalTitle}>Veelgestelde vragen</Text>
-            <ScrollView style={{ maxHeight: 360 }}>
-              <Text style={styles.faqQuestion}>Hoe voeg ik een kind toe?</Text>
-              <Text style={styles.faqAnswer}>Gebruik 'Invite to Team' om een ouder of begeleider uit te nodigen. De ander kan de uitnodiging gebruiken om gekoppeld te worden.</Text>
-
-              <Text style={styles.faqQuestion}>Wat doet 'Visibility'?</Text>
-              <Text style={styles.faqAnswer}>Je bepaalt welke informatie teamleden kunnen zien, zoals voortgang en activiteiten.</Text>
-
-              <Text style={styles.faqQuestion}>Kan ik mijn wachtwoord wijzigen?</Text>
-              <Text style={styles.faqAnswer}>Ja — kies 'Wachtwoord wijzigen' in Account & Support en voer een nieuw wachtwoord in.</Text>
-            </ScrollView>
-
-            <Pressable onPress={() => setShowFAQModal(false)} style={styles.generateButton}>
-              <Text style={styles.generateButtonText}>Sluiten</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal transparent visible={showChangePasswordModal} animationType="slide" onRequestClose={() => setShowChangePasswordModal(false)}>
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCardLarge}>
-            <Text style={styles.modalTitle}>Wachtwoord wijzigen</Text>
-            <Text style={styles.modalSubtitle}>Voer een nieuw wachtwoord in</Text>
-
-            <TextInput
-              placeholder="Nieuw wachtwoord"
-              placeholderTextColor="#B8C7D4"
-              secureTextEntry
-              style={styles.modalInput}
-              value={newPassword}
-              onChangeText={setNewPassword}
-              autoComplete="off"
-              importantForAutofill="no"
-              textContentType="none"
-            />
-            <TextInput
-              placeholder="Bevestig nieuw wachtwoord"
-              placeholderTextColor="#B8C7D4"
-              secureTextEntry
-              style={styles.modalInput}
-              value={confirmNewPassword}
-              onChangeText={setConfirmNewPassword}
-              autoComplete="off"
-              importantForAutofill="no"
-              textContentType="none"
-            />
-
-            <View style={{ flexDirection: 'row', gap: 8 }}>
-              <Pressable onPress={() => setShowChangePasswordModal(false)} style={[styles.actionButton, styles.actionSecondary]}>
-                <Text style={styles.actionSecondaryText}>Annuleer</Text>
-              </Pressable>
-              <Pressable onPress={handleChangePassword} style={[styles.actionButton, styles.actionPrimary]}>
-                <Text style={styles.actionPrimaryText}>{changingPassword ? 'Bezig...' : 'Opslaan'}</Text>
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      {renderSupportModals()}
 
       <StatusBar style="dark" />
     </View>

@@ -18,7 +18,7 @@ import ChildFocusTimeScreen from './src/screens/ChildFocusTimeScreen';
 import ChildMoodScreen from './src/screens/ChildMoodScreen';
 import ParentDashboardScreen from './src/screens/ParentDashboardScreen';
 import { getSessionUser, signInParent, signOutCurrentUser, signUpParent } from './src/services/auth';
-import { ensureFamilyForCurrentUser } from './src/services/families';
+import { ensureFamilyForCurrentUser, loginChildWithCodeAndName } from './src/services/families';
 import type { AccessoryKey } from './src/components/MonsterPreview';
 
 type User = {
@@ -194,6 +194,17 @@ export default function App() {
 					setPendingInviteCode(code ?? null);
 					setScreen('childProfileSetup');
 				}}
+				onLoginChild={async ({ code, username }) => {
+					const { data, error } = await loginChildWithCodeAndName(code, username);
+					if (error) {
+						return error.message;
+					}
+
+					setMonsterName(data?.display_name || username.trim());
+					setSelectedAccessory(undefined);
+					setScreen('childHome');
+					return null;
+				}}
 			/>
 		);
 	}
@@ -250,9 +261,15 @@ export default function App() {
 						return 'Wachtwoorden komen niet overeen.';
 					}
 
-					const { error, needsEmailConfirmation } = await signUpParent(name, email, password);
+					const { error, needsEmailConfirmation, user } = await signUpParent(name, email, password);
 					if (error) {
 						return error.message;
+					}
+
+					// Als email confirmation nodig is, direct goed
+					if (needsEmailConfirmation) {
+						setScreen('login');
+						return null;
 					}
 
 					// Account aangemaakt! Nu automatisch inloggen en gezin maken
@@ -261,7 +278,7 @@ export default function App() {
 						return loginError.message;
 					}
 
-					const user = await getSessionUser();
+					// Gebruik de user data van de signUp response
 					if (user) {
 						const fullName = user.user_metadata?.full_name || '';
 						setCurrentUser({
@@ -272,7 +289,11 @@ export default function App() {
 					}
 
 					// Maak automatisch een gezin aan
-					await ensureFamilyForCurrentUser();
+					const { error: familyError } = await ensureFamilyForCurrentUser();
+					if (familyError) {
+						return `Kon gezin niet aanmaken: ${familyError.message}`;
+					}
+
 					setScreen('parentDashboard');
 					return null;
 				}}

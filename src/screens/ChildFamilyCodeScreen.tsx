@@ -1,6 +1,6 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { StatusBar } from 'expo-status-bar';
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useState } from 'react';
 
 import colors from '../theme/colors';
@@ -8,12 +8,16 @@ import colors from '../theme/colors';
 type ChildFamilyCodeScreenProps = {
   onBack?: () => void;
   onContinue?: (code?: string) => void;
+  onLoginChild?: (input: { code: string; username: string }) => Promise<string | null>;
 };
 
-export default function ChildFamilyCodeScreen({ onBack, onContinue }: ChildFamilyCodeScreenProps) {
+export default function ChildFamilyCodeScreen({ onBack, onContinue, onLoginChild }: ChildFamilyCodeScreenProps) {
   const [cameraVisible, setCameraVisible] = useState(false);
   const [permission, requestPermission] = useCameraPermissions();
   const [codeInput, setCodeInput] = useState('');
+  const [usernameInput, setUsernameInput] = useState('');
+  const [loginCodeInput, setLoginCodeInput] = useState('');
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   const openCamera = async () => {
     if (!permission?.granted) {
@@ -28,8 +32,25 @@ export default function ChildFamilyCodeScreen({ onBack, onContinue }: ChildFamil
     setCameraVisible(true);
   };
 
+  const handleChildLogin = async () => {
+    if (!onLoginChild || isLoggingIn) {
+      return;
+    }
+
+    setIsLoggingIn(true);
+    const errorMessage = await onLoginChild({
+      code: loginCodeInput.trim(),
+      username: usernameInput.trim(),
+    });
+    setIsLoggingIn(false);
+
+    if (errorMessage) {
+      Alert.alert('Inloggen mislukt', errorMessage);
+    }
+  };
+
   return (
-    <View style={styles.screen}>
+    <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <TouchableOpacity activeOpacity={0.7} hitSlop={16} onPress={onBack} style={styles.backButton}>
           <Text style={styles.backArrow}>←</Text>
@@ -87,6 +108,47 @@ export default function ChildFamilyCodeScreen({ onBack, onContinue }: ChildFamil
         <TouchableOpacity activeOpacity={0.9} onPress={() => onContinue?.(codeInput.trim())} style={styles.primaryButton}>
           <Text style={styles.primaryText}>Ga verder</Text>
         </TouchableOpacity>
+
+        <View style={styles.childLoginCard}>
+          <Text style={styles.childLoginTitle}>Heb je al een kindaccount?</Text>
+          <Text style={styles.childLoginHint}>Log in met je gezinscode en gebruikersnaam.</Text>
+
+          <View style={styles.inputShell}>
+            <TextInput
+              placeholder="Je gebruikersnaam"
+              placeholderTextColor="#B8C7D4"
+              style={styles.input}
+              value={usernameInput}
+              onChangeText={setUsernameInput}
+              autoCapitalize="none"
+              autoComplete="off"
+              importantForAutofill="no"
+              textContentType="none"
+            />
+          </View>
+
+          <View style={styles.inputShellCompact}>
+            <TextInput
+              placeholder="Je gezinscode"
+              placeholderTextColor="#B8C7D4"
+              style={styles.input}
+              value={loginCodeInput}
+              onChangeText={setLoginCodeInput}
+              autoCapitalize="characters"
+              autoComplete="off"
+              importantForAutofill="no"
+              textContentType="none"
+            />
+          </View>
+
+          <TouchableOpacity
+            activeOpacity={0.9}
+            onPress={handleChildLogin}
+            style={[styles.secondaryButton, isLoggingIn && styles.secondaryButtonDisabled]}
+          >
+            <Text style={styles.secondaryText}>{isLoggingIn ? 'Bezig...' : 'Inloggen als kind'}</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
 
       <Modal visible={cameraVisible} animationType="slide" onRequestClose={() => setCameraVisible(false)}>
@@ -111,7 +173,7 @@ export default function ChildFamilyCodeScreen({ onBack, onContinue }: ChildFamil
       </Modal>
 
       <StatusBar style="dark" />
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -286,7 +348,21 @@ const styles = StyleSheet.create({
     minHeight: 78,
     borderRadius: 22,
     borderWidth: 2,
-    borderColor: '#BFEAF0',
+    borderColor: '#DDECF0',
+    backgroundColor: colors.white,
+    justifyContent: 'center',
+    shadowColor: colors.shadow,
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 3,
+  },
+  inputShellCompact: {
+    marginTop: 14,
+    minHeight: 78,
+    borderRadius: 22,
+    borderWidth: 2,
+    borderColor: '#DDECF0',
     backgroundColor: colors.white,
     justifyContent: 'center',
     shadowColor: colors.shadow,
@@ -314,6 +390,44 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontSize: 20,
     lineHeight: 24,
+    fontWeight: '800',
+  },
+  childLoginCard: {
+    marginTop: 28,
+    borderRadius: 22,
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: '#DDECF0',
+    padding: 16,
+  },
+  childLoginTitle: {
+    fontSize: 20,
+    lineHeight: 24,
+    fontWeight: '800',
+    color: colors.textStrong,
+    textAlign: 'center',
+  },
+  childLoginHint: {
+    marginTop: 8,
+    fontSize: 15,
+    lineHeight: 22,
+    color: '#72879C',
+    textAlign: 'center',
+  },
+  secondaryButton: {
+    marginTop: 16,
+    minHeight: 66,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#DDECF0',
+  },
+  secondaryButtonDisabled: {
+    opacity: 0.75,
+  },
+  secondaryText: {
+    color: colors.textStrong,
+    fontSize: 18,
     fontWeight: '800',
   },
   cameraScreen: {
