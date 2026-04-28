@@ -5,7 +5,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, View, Alert, TextInput,
 import QRCode from 'react-native-qrcode-svg';
 
 import colors from '../theme/colors';
-import { getCurrentFamilyRoutines, type RoutineSummary } from '../services/routines';
+import { createRoutineWithTasks, getCurrentFamilyRoutinesWithTasks, type RoutineWithTasks } from '../services/routines';
 import { getCurrentFamily, getFamilyChildren, createTeamInviteForCurrentFamily } from '../services/families';
 import { supabase } from '../lib/supabase';
 import * as Clipboard from 'expo-clipboard';
@@ -37,7 +37,6 @@ const TEMPLATES = [
   { id: 'zomer-routine', title: 'Zomervakantie', subtitle: 'Zonnige routine voor vrije dagen' },
   { id: 'avond-routine', title: 'Avond Routine', subtitle: 'Rustig afsluiten om beter te slapen' },
   { id: 'verjaardag', title: 'Verjaardagsdag', subtitle: 'Speciale routine voor feestjes' },
-  { id: 'zelf', title: 'Zelf Maken', subtitle: 'Maak je eigen familie routine' },
 ];
 
 export default function ParentDashboardScreen({ currentUser, onLogout }: ParentDashboardScreenProps) {
@@ -50,7 +49,7 @@ export default function ParentDashboardScreen({ currentUser, onLogout }: ParentD
   const [showAccountSupport, setShowAccountSupport] = useState(false);
   const [shareDuration, setShareDuration] = useState<ShareDuration>('24u');
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('school-week');
-  const [dbRoutines, setDbRoutines] = useState<RoutineSummary[]>([]);
+  const [dbRoutines, setDbRoutines] = useState<RoutineWithTasks[]>([]);
   const [routinesError, setRoutinesError] = useState<string | null>(null);
   const [routinesLoading, setRoutinesLoading] = useState(true);
   const [familyId, setFamilyId] = useState<string | null>(null);
@@ -59,14 +58,15 @@ export default function ParentDashboardScreen({ currentUser, onLogout }: ParentD
   const [inviteCodeDb, setInviteCodeDb] = useState<string | null>(null);
   const [inviteCodeLocal, setInviteCodeLocal] = useState<string | null>(null);
   const [routineTasks, setRoutineTasks] = useState<RoutineTask[]>([
-    { id: 'wake-up', label: 'Opstaan', done: false },
-    { id: 'breakfast', label: 'Ontbijten', done: false },
-    { id: 'brush', label: 'Tandenpoetsen', done: false },
-    { id: 'to-school', label: 'Naar school', done: false },
-    { id: 'homework', label: 'Huiswerk', done: false },
-    { id: 'dinner', label: 'Avondeten', done: false },
-    { id: 'bed', label: 'Naar bed', done: false },
+    { id: 'wake-up', label: 'Opstaan', done: true },
+    { id: 'breakfast', label: 'Ontbijten', done: true },
+    { id: 'brush', label: 'Tandenpoetsen', done: true },
+    { id: 'to-school', label: 'Naar school', done: true },
+    { id: 'homework', label: 'Huiswerk', done: true },
+    { id: 'dinner', label: 'Avondeten', done: true },
+    { id: 'bed', label: 'Naar bed', done: true },
   ]);
+  const [savingRoutine, setSavingRoutine] = useState(false);
   const [showFAQModal, setShowFAQModal] = useState(false);
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
   const [newPassword, setNewPassword] = useState('');
@@ -84,7 +84,7 @@ export default function ParentDashboardScreen({ currentUser, onLogout }: ParentD
     const fetchRoutines = async () => {
       setRoutinesLoading(true);
       setRoutinesError(null);
-      const { data, error } = await getCurrentFamilyRoutines();
+      const { data, error } = await getCurrentFamilyRoutinesWithTasks();
 
       if (!isMounted) {
         return;
@@ -201,6 +201,53 @@ export default function ParentDashboardScreen({ currentUser, onLogout }: ParentD
       Alert.alert('Fout', 'Er is iets misgegaan.');
     } finally {
       setChangingPassword(false);
+    }
+  }
+
+  async function handleSaveRoutine() {
+    const selectedTasks = routineTasks.filter((task) => task.done);
+
+    if (selectedTasks.length === 0) {
+      Alert.alert('Kies taken', 'Selecteer minstens één taak voordat je de routine opslaat.');
+      return;
+    }
+
+    setSavingRoutine(true);
+    try {
+      const { data, error } = await createRoutineWithTasks({
+        title: selectedTemplate.title,
+        description: selectedTemplate.subtitle,
+        tasks: selectedTasks.map((task, index) => ({
+          title: task.label,
+          sort_order: index,
+          reward_points: 0,
+          is_required: true,
+        })),
+      });
+
+      if (error || !data) {
+        Alert.alert('Opslaan mislukt', error?.message ?? 'Kon routine niet opslaan.');
+        return;
+      }
+
+      setDbRoutines((prev) => [
+        {
+          ...data,
+          description: selectedTemplate.subtitle,
+          routine_tasks: selectedTasks.map((task, index) => ({
+            id: `${data.id}-${index}`,
+            title: task.label,
+            sort_order: index,
+            reward_points: 0,
+            is_required: true,
+          })),
+        },
+        ...prev.filter((routine) => routine.id !== data.id),
+      ]);
+      setActiveTab('home');
+      Alert.alert('Routine opgeslagen', `${data.title} is toegevoegd aan je routines.`);
+    } finally {
+      setSavingRoutine(false);
     }
   }
 
@@ -541,7 +588,7 @@ export default function ParentDashboardScreen({ currentUser, onLogout }: ParentD
                     <RoutineRow
                       key={routine.id}
                       title={routine.title}
-                      time={routine.is_active ? 'Actief' : 'Inactief'}
+                      time={`${routine.routine_tasks.length} taken • ${routine.is_active ? 'Actief' : 'Inactief'}`}
                       tone={index % 3 === 0 ? 'mint' : index % 3 === 1 ? 'sky' : 'pink'}
                     />
                   ))
@@ -607,7 +654,19 @@ export default function ParentDashboardScreen({ currentUser, onLogout }: ParentD
               <Text style={styles.cardTitle}>Routines</Text>
               {dbRoutines.length === 0 ? <TaskInsightRow label="Nog geen routines" /> : null}
               {dbRoutines.slice(0, 3).map((routine) => (
-                <TaskInsightRow key={routine.id} label={routine.title} />
+                <View key={routine.id} style={styles.routineDetailCard}>
+                  <View style={styles.rowBetween}>
+                    <Text style={styles.routineDetailTitle}>{routine.title}</Text>
+                    <Text style={styles.routineDetailStatus}>{routine.is_active ? 'Actief' : 'Inactief'}</Text>
+                  </View>
+                  {routine.description ? <Text style={styles.routineDetailDescription}>{routine.description}</Text> : null}
+                  {routine.routine_tasks.slice(0, 4).map((task) => (
+                    <View key={task.id} style={styles.routineTaskRow}>
+                      <Text style={styles.routineTaskText}>{task.title}</Text>
+                      <Text style={styles.routineTaskMeta}>{task.reward_points > 0 ? `+${task.reward_points}` : '0'}</Text>
+                    </View>
+                  ))}
+                </View>
               ))}
             </View>
           </>
@@ -669,8 +728,8 @@ export default function ParentDashboardScreen({ currentUser, onLogout }: ParentD
                 </Pressable>
               ))}
 
-              <Pressable style={styles.saveButton}>
-                <Text style={styles.saveButtonText}>Routine Opslaan</Text>
+              <Pressable disabled={savingRoutine} onPress={handleSaveRoutine} style={[styles.saveButton, savingRoutine && styles.saveButtonDisabled]}>
+                <Text style={styles.saveButtonText}>{savingRoutine ? 'Opslaan...' : 'Routine Opslaan'}</Text>
               </Pressable>
             </View>
           </>
@@ -860,7 +919,7 @@ function TemplateCard({
 
 function MenuRow({ label, onPress }: { label: string; onPress?: () => void }) {
   return (
-    <Pressable onPress={onPress} style={styles.menuRow}>
+    <Pressable hitSlop={10} onPress={onPress} style={({ pressed }) => [styles.menuRow, pressed && styles.menuRowPressed]}>
       <Text style={styles.menuLabel}>{label}</Text>
       <Text style={styles.menuArrow}>›</Text>
     </Pressable>
@@ -1067,6 +1126,54 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#8492A2',
     fontWeight: '700',
+  },
+  routineDetailCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E1ECF0',
+    backgroundColor: '#F8FCFD',
+    padding: 12,
+    gap: 8,
+    marginTop: 10,
+  },
+  routineDetailTitle: {
+    color: colors.textStrong,
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  routineDetailStatus: {
+    color: '#5F68C9',
+    backgroundColor: '#EDF1FF',
+    fontSize: 11,
+    fontWeight: '800',
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  routineDetailDescription: {
+    color: '#7F8C9B',
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  routineTaskRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: '#E6EEF2',
+    paddingTop: 8,
+  },
+  routineTaskText: {
+    color: colors.textStrong,
+    fontSize: 13,
+    fontWeight: '700',
+    flex: 1,
+    paddingRight: 10,
+  },
+  routineTaskMeta: {
+    color: '#8A97A9',
+    fontSize: 12,
+    fontWeight: '800',
   },
   quickActionsRow: {
     flexDirection: 'row',
@@ -1306,6 +1413,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  saveButtonDisabled: {
+    opacity: 0.7,
+  },
   saveButtonText: {
     color: colors.white,
     fontSize: 16,
@@ -1327,9 +1437,13 @@ const styles = StyleSheet.create({
     borderTopColor: '#E8F0F3',
     paddingTop: 12,
     paddingBottom: 6,
+    width: '100%',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  menuRowPressed: {
+    opacity: 0.75,
   },
   menuLabel: {
     color: colors.textStrong,

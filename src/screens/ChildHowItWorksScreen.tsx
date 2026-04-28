@@ -39,7 +39,7 @@ export default function ChildHowItWorksScreen({ onBack, onSkip, onContinue }: Ch
 
         <View style={styles.bodyBlock}>
           <Text style={styles.body}>
-            Deze app helpt je om <Text style={styles.bold}>overzicht te houden</Text> in je dag. Je ziet hier je dagelijkse routines, zoals opstaan, huiswerk maken en bedtijd.
+            Deze app helpt je om <Text style={styles.bold}>overzicht te houden</Text> in je dag. Je ziet hier je dagelijkse taken, zoals opstaan, huiswerk maken en bedtijd.
           </Text>
           <Text style={styles.body}>
             <Text style={styles.bold}>Vink een taak af</Text> wanneer je klaar bent en verdien punten.

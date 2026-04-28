@@ -93,6 +93,15 @@ export async function changePassword(newPassword: string) {
     return { error: toError('Wachtwoord moet minstens 6 karakters hebben.'), data: null };
   }
 
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError) {
+    return { error: sessionError, data: null };
+  }
+
+  if (!sessionData.session) {
+    return { error: toError('Je sessie is verlopen. Log opnieuw in en probeer het opnieuw.'), data: null };
+  }
+
   const { data, error } = await supabase.auth.updateUser({ password: newPassword });
   return { data, error };
 }

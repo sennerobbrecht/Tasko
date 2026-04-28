@@ -18,6 +18,18 @@ type ChildHomeScreenProps = {
   onOpenMood: () => void;
 };
 
+type ChildRoutine = {
+  title: string;
+  status: string;
+  tasks: string[];
+};
+
+const DEMO_ROUTINES: ChildRoutine[] = [
+  { title: 'School Week', status: 'Actief', tasks: ['Opstaan', 'Ontbijten', 'Tandenpoetsen', 'Naar school'] },
+  { title: 'Avond Routine', status: 'Actief', tasks: ['Avondeten', 'Douchen', 'Tandenpoetsen', 'Naar bed'] },
+  { title: 'Weekend Routine', status: 'Ingepland', tasks: ['Rustig opstarten', 'Spelletje spelen', 'Opruimen'] },
+];
+
 export default function ChildHomeScreen({
   monsterName,
   selectedAccessory,
@@ -32,6 +44,7 @@ export default function ChildHomeScreen({
   onOpenMood,
 }: ChildHomeScreenProps) {
   const displayName = monsterName.trim() || 'Je nieuwe monstertje';
+  const activeRoutines = DEMO_ROUTINES;
 
   return (
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -82,10 +95,33 @@ export default function ChildHomeScreen({
         <QuickCard title="Hoe voel je?" subtitle="Track je gevoel" emoji="💭" onPress={onOpenMood} />
       </View>
 
+      <View style={styles.routinesCard}>
+        <View style={styles.tasksHeader}>
+          <Text style={styles.tasksTitle}>Actieve routines</Text>
+          <Text style={styles.tasksCount}>{activeRoutines.length} zichtbaar</Text>
+        </View>
+
+        {activeRoutines.map((routine) => (
+          <View key={routine.title} style={styles.routineRow}>
+            <View style={styles.routineHeader}>
+              <Text style={styles.routineTitle}>{routine.title}</Text>
+              <Text style={styles.routineStatus}>{routine.status}</Text>
+            </View>
+            <View style={styles.routineTaskChips}>
+              {routine.tasks.map((task) => (
+                <View key={task} style={styles.routineTaskChip}>
+                  <Text style={styles.routineTaskChipText}>{task}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        ))}
+      </View>
+
       <View style={styles.tasksCard}>
         <View style={styles.tasksHeader}>
           <Text style={styles.tasksTitle}>Taken Vandaag</Text>
-          <Text style={styles.tasksCount}>6 te gaan</Text>
+          <Text style={styles.tasksCount}>Alleen lezen</Text>
         </View>
 
         {[
@@ -104,7 +140,6 @@ export default function ChildHomeScreen({
               <Text style={styles.taskText}>{task.title}</Text>
               <Text style={styles.taskReward}>{task.reward}</Text>
             </View>
-            <Text style={styles.taskArrow}>{task.done ? ' ' : '›'}</Text>
           </View>
         ))}
       </View>
@@ -208,6 +243,14 @@ const styles = StyleSheet.create({
   miniStatValue: { fontSize: 20, fontWeight: '900', color: colors.textStrong },
   miniStatLabel: { fontSize: 12, color: '#8A97A9', marginTop: 4, fontWeight: '700' },
   quickGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  routinesCard: { backgroundColor: colors.white, borderRadius: 26, borderWidth: 1, borderColor: '#DDECF0', padding: 14, shadowColor: colors.shadow, shadowOpacity: 0.07, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 3, gap: 10 },
+  routineRow: { borderRadius: 18, borderWidth: 1, borderColor: '#E4F2F4', backgroundColor: '#F6FBFC', padding: 12, gap: 10 },
+  routineHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
+  routineTitle: { fontSize: 16, fontWeight: '900', color: colors.textStrong },
+  routineStatus: { color: '#5F68C9', backgroundColor: '#EDF1FF', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999, fontSize: 11, fontWeight: '800' },
+  routineTaskChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  routineTaskChip: { backgroundColor: colors.white, borderWidth: 1, borderColor: '#DDECF0', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6 },
+  routineTaskChipText: { color: '#6E7C8D', fontSize: 12, fontWeight: '700' },
   quickCard: { width: '48.5%', backgroundColor: colors.white, borderRadius: 20, padding: 14, borderWidth: 1, borderColor: '#DDECF0', minHeight: 110, justifyContent: 'center', shadowColor: colors.shadow, shadowOpacity: 0.05, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 2 },
   quickCardPressed: { transform: [{ scale: 0.99 }], opacity: 0.95 },
   quickEmoji: { fontSize: 28, marginBottom: 8 },
@@ -225,5 +268,4 @@ const styles = StyleSheet.create({
   taskTextWrap: { flex: 1 },
   taskText: { fontSize: 16, fontWeight: '800', color: colors.textStrong },
   taskReward: { fontSize: 12, color: '#8A97A9', marginTop: 2, fontWeight: '700' },
-  taskArrow: { color: '#B7C2CE', fontSize: 22, fontWeight: '900' },
 });
