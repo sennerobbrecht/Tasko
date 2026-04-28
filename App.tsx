@@ -255,9 +255,25 @@ export default function App() {
 						return error.message;
 					}
 
-					Alert.alert('Account aangemaakt!', 'Welkom! Log nu in met je gegevens.', [
-						{ text: 'OK', onPress: () => setScreen('welcome') },
-					]);
+					// Account aangemaakt! Nu automatisch inloggen en gezin maken
+					const { error: loginError } = await signInParent(email, password);
+					if (loginError) {
+						return loginError.message;
+					}
+
+					const user = await getSessionUser();
+					if (user) {
+						const fullName = user.user_metadata?.full_name || '';
+						setCurrentUser({
+							id: user.id,
+							email: user.email || '',
+							name: fullName,
+						});
+					}
+
+					// Maak automatisch een gezin aan
+					await ensureFamilyForCurrentUser();
+					setScreen('parentDashboard');
 					return null;
 				}}
 			/>
