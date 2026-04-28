@@ -3,8 +3,8 @@ import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, Te
 
 import colors from '../theme/colors';
 
-import { useState } from 'react';
-import { createChildFromInvite } from '../services/families';
+import { useEffect, useState } from 'react';
+import { createChildFromInvite, familyHasChildForInviteCode } from '../services/families';
 
 type ChildProfileSetupScreenProps = {
   onBack?: () => void;
@@ -15,6 +15,38 @@ type ChildProfileSetupScreenProps = {
 export default function ChildProfileSetupScreen({ onBack, onContinue, inviteCode }: ChildProfileSetupScreenProps) {
   const [username, setUsername] = useState('');
   const [creating, setCreating] = useState(false);
+  const [hasExistingChild, setHasExistingChild] = useState(false);
+  const [loadingChildLimit, setLoadingChildLimit] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const checkChildLimit = async () => {
+      setLoadingChildLimit(true);
+
+      if (!inviteCode) {
+        if (mounted) {
+          setHasExistingChild(false);
+          setLoadingChildLimit(false);
+        }
+        return;
+      }
+
+      const { hasChild, error } = await familyHasChildForInviteCode(inviteCode);
+      if (!mounted) {
+        return;
+      }
+
+      setHasExistingChild(error ? false : hasChild);
+      setLoadingChildLimit(false);
+    };
+
+    checkChildLimit();
+
+    return () => {
+      mounted = false;
+    };
+  }, [inviteCode]);
   return (
     <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
@@ -56,9 +88,21 @@ export default function ChildProfileSetupScreen({ onBack, onContinue, inviteCode
 
         <Text style={styles.helper}>Deze naam zien anderen in je gezin</Text>
 
+        {hasExistingChild ? (
+          <View style={styles.limitBox}>
+            <Text style={styles.limitTitle}>Dit gezin heeft al een kind</Text>
+            <Text style={styles.limitText}>Je kunt maximaal 1 kind per gezin toevoegen. Verwijder eerst het bestaande kind of gebruik een ander gezin.</Text>
+          </View>
+        ) : null}
+
         <TouchableOpacity
           activeOpacity={0.9}
+          disabled={creating || loadingChildLimit || hasExistingChild}
           onPress={async () => {
+            if (hasExistingChild) {
+              Alert.alert('Niet mogelijk', 'Dit gezin heeft al een kind. Er kan maximaal 1 kind per gezin worden toegevoegd.');
+              return;
+            }
             if (!inviteCode) {
               Alert.alert('Fout', 'Geen uitnodigingscode gevonden. Ga terug en voer de code in.');
               return;
@@ -76,9 +120,9 @@ export default function ChildProfileSetupScreen({ onBack, onContinue, inviteCode
             }
             onContinue?.();
           }}
-          style={styles.primaryButton}
+          style={[styles.primaryButton, (creating || loadingChildLimit || hasExistingChild) && styles.primaryButtonDisabled]}
         >
-          <Text style={styles.primaryText}>{creating ? 'Bezig…' : 'Ga verder'}</Text>
+          <Text style={styles.primaryText}>{loadingChildLimit ? 'Controleren...' : creating ? 'Bezig…' : hasExistingChild ? 'Kind is al toegevoegd' : 'Ga verder'}</Text>
         </TouchableOpacity>
       </ScrollView>
 
@@ -228,10 +272,36 @@ const styles = StyleSheet.create({
     backgroundColor: '#D7EEF3',
     marginBottom: 8,
   },
+  primaryButtonDisabled: {
+    opacity: 0.65,
+  },
   primaryText: {
     color: colors.white,
     fontSize: 20,
     lineHeight: 24,
     fontWeight: '800',
+  },
+  limitBox: {
+    marginTop: 8,
+    marginBottom: 8,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#F2A7B8',
+    backgroundColor: '#FFF4F7',
+    padding: 14,
+  },
+  limitTitle: {
+    color: '#D84C63',
+    fontSize: 17,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
+  limitText: {
+    marginTop: 6,
+    color: '#8A97A9',
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+    fontWeight: '600',
   },
 });

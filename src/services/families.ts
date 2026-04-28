@@ -214,3 +214,50 @@ export async function loginChildWithCodeAndName(code: string, displayName: strin
 
   return { error: null, data: data[0] as { id: string; display_name: string } };
 }
+
+export async function familyHasChildForInviteCode(code: string) {
+  const trimmedCode = code.trim();
+
+  if (!trimmedCode) {
+    return { error: new Error('Vul de gezinscode in.'), hasChild: false };
+  }
+
+  const { data, error } = await supabase.rpc('has_child_profile_for_invite_code', {
+    p_code: trimmedCode,
+  });
+
+  if (error) {
+    return { error, hasChild: false };
+  }
+
+  return { error: null, hasChild: Boolean(data) };
+}
+
+export async function removeCurrentFamilyChild() {
+  const { family, error: familyError } = await getCurrentFamily();
+  if (familyError) {
+    return { error: familyError };
+  }
+
+  if (!family) {
+    return { error: new Error('Geen gezin gevonden.') };
+  }
+
+  const { data: children, error: childrenError } = await supabase
+    .from('child_profiles')
+    .select('id')
+    .eq('family_id', family.id)
+    .limit(1);
+
+  if (childrenError) {
+    return { error: childrenError };
+  }
+
+  const child = children?.[0] as { id: string } | undefined;
+  if (!child) {
+    return { error: new Error('Geen kind gevonden om te verwijderen.') };
+  }
+
+  const { error } = await supabase.from('child_profiles').delete().eq('id', child.id);
+  return { error: error ?? null };
+}

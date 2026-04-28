@@ -6,7 +6,7 @@ import QRCode from 'react-native-qrcode-svg';
 
 import colors from '../theme/colors';
 import { createRoutineWithTasks, getCurrentFamilyRoutinesWithTasks, type RoutineWithTasks } from '../services/routines';
-import { getCurrentFamily, getFamilyChildren, createTeamInviteForCurrentFamily } from '../services/families';
+import { getCurrentFamily, getFamilyChildren, createTeamInviteForCurrentFamily, removeCurrentFamilyChild } from '../services/families';
 import { supabase } from '../lib/supabase';
 import * as Clipboard from 'expo-clipboard';
 import { changePassword } from '../services/auth';
@@ -20,6 +20,7 @@ type User = {
 type ParentDashboardScreenProps = {
   currentUser?: User | null;
   onLogout?: () => void;
+  onOpenPremium?: () => void;
 };
 
 type ParentTab = 'home' | 'insights' | 'planner' | 'profile';
@@ -39,7 +40,7 @@ const TEMPLATES = [
   { id: 'verjaardag', title: 'Verjaardagsdag', subtitle: 'Speciale routine voor feestjes' },
 ];
 
-export default function ParentDashboardScreen({ currentUser, onLogout }: ParentDashboardScreenProps) {
+export default function ParentDashboardScreen({ currentUser, onLogout, onOpenPremium }: ParentDashboardScreenProps) {
   const [activeTab, setActiveTab] = useState<ParentTab>('home');
   const [showReadOnlyModal, setShowReadOnlyModal] = useState(false);
   const [showInviteScreen, setShowInviteScreen] = useState(false);
@@ -110,9 +111,60 @@ export default function ParentDashboardScreen({ currentUser, onLogout }: ParentD
 
   const displayName = dashboardUser?.name?.trim() || 'Ouder';
   const displayEmail = dashboardUser?.email || '—';
+  const hasChildInFamily = children.length >= 1;
+
+  const handleInviteToTeam = () => {
+    if (hasChildInFamily) {
+      onOpenPremium?.();
+      return;
+    }
+
+    setShowInviteScreen(true);
+  };
+
+  async function handleRemoveChild() {
+    Alert.alert('Kind verwijderen', 'Weet je zeker dat je het kind uit dit gezin wilt verwijderen?', [
+      { text: 'Annuleren', style: 'cancel' },
+      {
+        text: 'Verwijderen',
+        style: 'destructive',
+        onPress: async () => {
+          const { error } = await removeCurrentFamilyChild();
+          if (error) {
+            Alert.alert('Fout', error.message || 'Kon kind niet verwijderen.');
+            return;
+          }
+
+          setChildren([]);
+          Alert.alert('Klaar', 'Het kind is verwijderd uit het gezin.');
+        },
+      },
+    ]);
+  }
 
   useEffect(() => {
     let isMounted = true;
+
+    const formatDateNl = (isoDate: string | null | undefined) => {
+      if (!isoDate) {
+        return '-';
+      }
+
+      const date = new Date(isoDate);
+      return date.toLocaleDateString('nl-NL', {
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric',
+      });
+    };
+
+    const mapRoleLabel = (role: string | null | undefined) => {
+      if (role === 'owner') return 'Eigenaar';
+      if (role === 'parent') return 'Ouder';
+      if (role === 'guardian') return 'Begeleider';
+      if (role === 'viewer') return 'Kijker';
+      return 'Ouder';
+    };
 
     const fetchRoutines = async () => {
       setRoutinesLoading(true);
@@ -133,20 +185,127 @@ export default function ParentDashboardScreen({ currentUser, onLogout }: ParentD
       setRoutinesLoading(false);
     };
 
-    fetchRoutines();
-
     const fetchFamily = async () => {
-      const { family, error } = await getCurrentFamily();
+      const { family } = await getCurrentFamily();
       if (!isMounted) return;
-      if (family && family.id) setFamilyId(family.id);
+      setFamilyId(family?.id ?? null);
     };
 
+    const fetchAccountInfo = async () => {
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (!isMounted || authError || !authData.user) {
+        return;
+      }
+
+      const authUser = authData.user;
+      setAuthUserId(authUser.id);
+      setMemberSinceLabel(formatDateNl(authUser.created_at));
+      setDashboardUser({
+        id: authUser.id,
+        email: authUser.email || currentUser?.email || '',
+        name: (authUser.user_metadata?.full_name as string) || currentUser?.name || '',
+      });
+
+      const { data: ownedFamilies } = await supabase
+        .from('families')
+        .select('id')
+        .eq('owner_user_id', authUser.id)
+        .limit(1);
+
+      if (ownedFamilies && ownedFamilies.length > 0) {
+        setAccountRoleLabel('Eigenaar');
+        return;
+      }
+
+      const { data: membershipRows } = await supabase
+        .from('family_members')
+        .select('role')
+        .eq('user_id', authUser.id)
+        .limit(1);
+
+      setAccountRoleLabel(mapRoleLabel(membershipRows?.[0]?.role));
+    };
+
+    const fetchCompletionStats = async () => {
+      setCompletionsLoading(true);
+
+      const today = new Date();
+      const todayIso = today.toISOString().slice(0, 10);
+      const weekStart = new Date(today);
+      const day = weekStart.getDay();
+      const diff = day === 0 ? 6 : day - 1;
+      weekStart.setDate(weekStart.getDate() - diff);
+      const weekStartIso = weekStart.toISOString().slice(0, 10);
+
+      const thirtyDaysAgo = new Date(today);
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const fromIso = thirtyDaysAgo.toISOString().slice(0, 10);
+
+      const { data, error } = await supabase
+        .from('task_completions')
+        .select('completed_on')
+        .gte('completed_on', fromIso);
+
+      if (!isMounted) {
+        return;
+      }
+
+      if (error || !data) {
+        setTodayCompletions(0);
+        setWeekCompletions(0);
+        setStreakDays(0);
+        setCompletionsLoading(false);
+        return;
+      }
+
+      const completedDates = data.map((row) => row.completed_on);
+      const todayCount = completedDates.filter((d) => d === todayIso).length;
+      const weekCount = completedDates.filter((d) => d >= weekStartIso).length;
+
+      const uniqueDates = Array.from(new Set(completedDates)).sort((a, b) => b.localeCompare(a));
+      let streak = 0;
+      let cursor = new Date(todayIso);
+      while (true) {
+        const key = cursor.toISOString().slice(0, 10);
+        if (!uniqueDates.includes(key)) break;
+        streak += 1;
+        cursor.setDate(cursor.getDate() - 1);
+      }
+
+      setTodayCompletions(todayCount);
+      setWeekCompletions(weekCount);
+      setStreakDays(streak);
+      setCompletionsLoading(false);
+    };
+
+    fetchRoutines();
     fetchFamily();
+    fetchAccountInfo();
+    fetchCompletionStats();
+
+    const routinesChannel = supabase
+      .channel('parent-routines-live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'routines' }, fetchRoutines)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'routine_tasks' }, fetchRoutines)
+      .subscribe();
+
+    const completionsChannel = supabase
+      .channel('parent-completions-live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_completions' }, fetchCompletionStats)
+      .subscribe();
+
+    const authSubscription = supabase.auth.onAuthStateChange(() => {
+      fetchAccountInfo();
+      fetchFamily();
+    });
 
     return () => {
       isMounted = false;
+      supabase.removeChannel(routinesChannel);
+      supabase.removeChannel(completionsChannel);
+      authSubscription.data.subscription.unsubscribe();
     };
-  }, []);
+  }, [currentUser?.email, currentUser?.name]);
 
   useEffect(() => {
     let mounted = true;
@@ -184,7 +343,7 @@ export default function ParentDashboardScreen({ currentUser, onLogout }: ParentD
     let mounted = true;
     if (!showInviteScreen) return;
     // create a local optimistic code so QR/code appears immediately
-    const local = generateInviteCode(familyId ?? currentUser?.id);
+    const local = generateInviteCode(familyId ?? authUserId ?? undefined);
     setInviteCodeLocal(local);
     setInviteCodeDb(null);
 
@@ -195,7 +354,7 @@ export default function ParentDashboardScreen({ currentUser, onLogout }: ParentD
     };
     createInvite();
     return () => { mounted = false; };
-  }, [showInviteScreen]);
+  }, [showInviteScreen, familyId, authUserId]);
 
   function generateInviteCode(userId?: string) {
     if (userId) {
@@ -443,15 +602,15 @@ export default function ParentDashboardScreen({ currentUser, onLogout }: ParentD
             
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Email:</Text>
-              <Text style={styles.infoValue}>{currentUser?.email}</Text>
+              <Text style={styles.infoValue}>{displayEmail}</Text>
             </View>
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Account Type:</Text>
-              <Text style={styles.infoValue}>Ouder / Begeleider</Text>
+              <Text style={styles.infoValue}>{accountRoleLabel}</Text>
             </View>
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Lid sinds:</Text>
-              <Text style={styles.infoValue}>April 27, 2026</Text>
+              <Text style={styles.infoValue}>{memberSinceLabel}</Text>
             </View>
           </View>
 
@@ -504,9 +663,9 @@ export default function ParentDashboardScreen({ currentUser, onLogout }: ParentD
             <Text style={styles.subtleText}>Ouders en begeleiders</Text>
             
             <View style={styles.memberItem}>
-              <Text style={styles.memberName}>👤 {currentUser?.name || 'Jij'}</Text>
-              <Text style={styles.memberEmail}>{currentUser?.email}</Text>
-              <Text style={styles.memberRole}>Eigenaar</Text>
+              <Text style={styles.memberName}>👤 {displayName || 'Jij'}</Text>
+              <Text style={styles.memberEmail}>{displayEmail}</Text>
+              <Text style={styles.memberRole}>{accountRoleLabel}</Text>
             </View>
           </View>
 
@@ -529,18 +688,14 @@ export default function ParentDashboardScreen({ currentUser, onLogout }: ParentD
                   <Text style={styles.memberName}>👧 {c.display_name}</Text>
                   <Text style={styles.memberEmail}>Voortgang: 0%</Text>
                   <Text style={styles.memberRole}>Actief</Text>
+                                  <Pressable onPress={handleRemoveChild} style={styles.removeChildButton}>
+                                    <Text style={styles.removeChildButtonText}>Kind verwijderen</Text>
+                                  </Pressable>
                 </View>
               ))
             )}
 
-            {children.length > 0 && (
-              <>
-                <View style={{ height: 8 }} />
-                <Pressable onPress={() => { setShowFamilyTeamSettings(false); setShowInviteScreen(true); }} style={[styles.actionButton, styles.actionSecondary]}>
-                  <Text style={styles.actionSecondaryText}>+ Kind toevoegen</Text>
-                </Pressable>
-              </>
-            )}
+            <Text style={styles.limitWarning}>{hasChildInFamily ? 'Je kunt maximaal 1 kind per gezin toevoegen.' : 'Je kunt nu een kind toevoegen aan dit gezin.'}</Text>
           </View>
 
           <View style={styles.card}>
@@ -638,7 +793,7 @@ export default function ParentDashboardScreen({ currentUser, onLogout }: ParentD
         ]}
       >
         <Text style={styles.headerTitle}>
-          {activeTab === 'home' && `Welkom terug, ${currentUser?.name || 'Ouder'} 👋`}
+          {activeTab === 'home' && `Welkom terug, ${displayName} 👋`}
           {activeTab === 'insights' && 'Inzichten'}
           {activeTab === 'planner' && 'Kies een Template'}
           {activeTab === 'profile' && 'Instellingen'}
@@ -656,19 +811,19 @@ export default function ParentDashboardScreen({ currentUser, onLogout }: ParentD
           <>
             <View style={[styles.card, styles.progressCard]}>
               <View style={styles.rowBetween}>
-                <Text style={styles.cardTitle}>Emma's Voortgang</Text>
-                <Text style={styles.smallBadge}>Vandaag bijgewerkt</Text>
+                <Text style={styles.cardTitle}>Gezinsvoortgang</Text>
+                <Text style={styles.smallBadge}>{completionsLoading ? 'Laden...' : 'Realtime'}</Text>
               </View>
 
               <View style={styles.progressShell}>
-                <View style={[styles.progressFill, { width: '80%' }]} />
+                <View style={[styles.progressFill, { width: `${todayProgressPercent}%` }]} />
               </View>
-              <Text style={styles.supportText}>12 van 15 taken voltooid</Text>
+              <Text style={styles.supportText}>{`${todayCompletions} van ${totalTaskCount} taken voltooid vandaag`}</Text>
 
               <View style={styles.statGrid}>
-                <StatCard label="Streak" value="7 dagen" />
-                <StatCard label="Voltooid" value="12/15" />
-                <StatCard label="Focus" value="85%" />
+                <StatCard label="Streak" value={`${streakDays} dagen`} />
+                <StatCard label="Voltooid" value={`${todayCompletions}/${totalTaskCount}`} />
+                <StatCard label="Focus" value={`${weekFocusPercent}%`} />
               </View>
             </View>
 
@@ -849,6 +1004,7 @@ export default function ParentDashboardScreen({ currentUser, onLogout }: ParentD
               <Text style={styles.sectionTitle}>Account</Text>
               <MenuRow label="Family & Team Settings" onPress={() => setShowFamilyTeamSettings(true)} />
               <MenuRow label="Invite to Team" onPress={() => setShowInviteScreen(true)} />
+                          <MenuRow label="Invite to Team" onPress={handleInviteToTeam} />
             </View>
 
             <View style={styles.card}>
@@ -1097,6 +1253,14 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
     textAlign: 'center',
+  },
+  limitWarning: {
+    marginTop: 6,
+    color: '#D84C63',
+    fontSize: 13,
+    lineHeight: 18,
+    textAlign: 'center',
+    fontWeight: '700',
   },
   helperStep: {
     color: '#6C7A8E',
@@ -1504,6 +1668,19 @@ const styles = StyleSheet.create({
     marginVertical: 8,
   },
   memberName: {
+  removeChildButton: {
+    marginTop: 8,
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    backgroundColor: '#FFE5EA',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  removeChildButtonText: {
+    color: '#D84C63',
+    fontSize: 13,
+    fontWeight: '800',
+  },
     fontSize: 15,
     fontWeight: '800',
     color: colors.textStrong,

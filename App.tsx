@@ -17,6 +17,7 @@ import ChildAchievementsScreen from './src/screens/ChildAchievementsScreen';
 import ChildFocusTimeScreen from './src/screens/ChildFocusTimeScreen';
 import ChildMoodScreen from './src/screens/ChildMoodScreen';
 import ParentDashboardScreen from './src/screens/ParentDashboardScreen';
+import PremiumScreen from './src/screens/PremiumScreen';
 import { getSessionUser, signInParent, signOutCurrentUser, signUpParent } from './src/services/auth';
 import { ensureFamilyForCurrentUser, loginChildWithCodeAndName } from './src/services/families';
 import type { AccessoryKey } from './src/components/MonsterPreview';
@@ -43,6 +44,7 @@ type Screen =
   | 'childAchievements'
   | 'childFocusTime'
 	| 'childMood'
+		| 'premium'
 	| 'parentDashboard';
 
 export default function App() {
@@ -136,6 +138,10 @@ export default function App() {
 
 	if (screen === 'childMood') {
 		return <ChildMoodScreen monsterName={monsterName} selectedAccessory={selectedAccessory} onBack={() => setScreen('childHome')} />;
+	}
+
+	if (screen === 'premium') {
+		return <PremiumScreen onBack={() => setScreen('parentDashboard')} />;
 	}
 
 	if (screen === 'login') {
@@ -304,6 +310,7 @@ export default function App() {
 	if (screen === 'parentDashboard') {
 		return <ParentDashboardScreen 
 			currentUser={currentUser}
+			onOpenPremium={() => setScreen('premium')}
 			onLogout={async () => {
 				await signOutCurrentUser();
 				setCurrentUser(null);
