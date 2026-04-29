@@ -1004,7 +1004,7 @@ export default function ParentDashboardScreen({ currentUser, onLogout, onOpenPre
               <Text style={styles.sectionTitle}>Account</Text>
               <MenuRow label="Family & Team Settings" onPress={() => setShowFamilyTeamSettings(true)} />
               <MenuRow label="Invite to Team" onPress={() => setShowInviteScreen(true)} />
-                          <MenuRow label="Invite to Team" onPress={handleInviteToTeam} />
+              <MenuRow label="Premium" onPress={handleInviteToTeam} />
             </View>
 
             <View style={styles.card}>
@@ -1668,6 +1668,11 @@ const styles = StyleSheet.create({
     marginVertical: 8,
   },
   memberName: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: colors.textStrong,
+    marginBottom: 4,
+  },
   removeChildButton: {
     marginTop: 8,
     alignSelf: 'flex-start',
@@ -1680,11 +1685,6 @@ const styles = StyleSheet.create({
     color: '#D84C63',
     fontSize: 13,
     fontWeight: '800',
-  },
-    fontSize: 15,
-    fontWeight: '800',
-    color: colors.textStrong,
-    marginBottom: 4,
   },
   memberEmail: {
     fontSize: 13,

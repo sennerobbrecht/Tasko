@@ -2,11 +2,13 @@ import { StatusBar } from 'expo-status-bar';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import colors from '../theme/colors';
-import { MonsterPreview, type AccessoryKey } from '../components/MonsterPreview';
+import { type AccessoryKey } from '../components/MonsterPreview';
+import { MonsterModel3D } from '../components/MonsterModel3D';
 
 type ChildHomeScreenProps = {
   monsterName: string;
   selectedAccessory?: AccessoryKey;
+  selectedMonsterColor: string;
   coins: number;
   level: number;
   streakDays: number;
@@ -33,6 +35,7 @@ const DEMO_ROUTINES: ChildRoutine[] = [
 export default function ChildHomeScreen({
   monsterName,
   selectedAccessory,
+  selectedMonsterColor,
   coins,
   level,
   streakDays,
@@ -70,7 +73,7 @@ export default function ChildHomeScreen({
         </View>
         <Text style={styles.heroSubtitle}>Level {level} • Nieuwe start</Text>
         <View style={styles.previewBox}>
-          <MonsterPreview accessory={selectedAccessory} size={180} />
+          <MonsterModel3D color={selectedMonsterColor} size={180} />
         </View>
 
         <View style={styles.progressRow}>

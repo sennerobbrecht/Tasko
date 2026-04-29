@@ -6,6 +6,7 @@ export type AccessoryKey = 'sunglasses' | 'hoodie' | 'crown' | 'bowtie' | 'flowe
 
 type MonsterPreviewProps = {
   accessory?: AccessoryKey;
+  color?: string;
   size?: number;
   showLabel?: boolean;
 };
@@ -20,14 +21,16 @@ const ACCESSORY_LABELS: Record<AccessoryKey, string> = {
   patch: '🏴‍☠️',
 };
 
-export function MonsterPreview({ accessory, size = 160, showLabel = false }: MonsterPreviewProps) {
+export const MONSTER_COLORS = ['#D6F7FF', '#FFD9EC', '#DDF7D8', '#FFE9C9', '#E2DDFF'] as const;
+
+export function MonsterPreview({ accessory, color = MONSTER_COLORS[0], size = 160, showLabel = false }: MonsterPreviewProps) {
   const scale = size / 160;
 
   return (
     <View style={[styles.frame, { width: size, height: size }]}>
       <View style={[styles.monster, { transform: [{ scale }] }]}>
-        <View style={styles.glow} />
-        <View style={styles.face} />
+        <View style={[styles.glow, { backgroundColor: color }]} />
+        <View style={[styles.face, { backgroundColor: color }]} />
         <View style={[styles.horn, styles.hornLeft]} />
         <View style={[styles.horn, styles.hornRight]} />
         <View style={styles.eyeLeft} />

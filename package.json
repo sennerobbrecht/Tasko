@@ -11,16 +11,22 @@
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.6.1",
     "@supabase/supabase-js": "^2.104.1",
     "expo": "~54.0.33",
+    "expo-asset": "~12.0.13",
     "expo-camera": "~17.0.10",
     "expo-clipboard": "^55.0.13",
+    "expo-file-system": "~19.0.22",
+    "expo-gl": "~16.0.10",
     "expo-status-bar": "~3.0.9",
     "qrcode": "^1.5.4",
     "react": "19.1.0",
     "react-native": "0.81.5",
     "react-native-qrcode-svg": "^6.3.21",
-    "react-native-url-polyfill": "^3.0.0"
+    "react-native-url-polyfill": "^3.0.0",
+    "three": "^0.184.0"
   },
   "devDependencies": {
     "@types/react": "~19.1.0",

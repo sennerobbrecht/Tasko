@@ -7,6 +7,7 @@ import { MonsterPreview, type AccessoryKey } from '../components/MonsterPreview'
 type ChildMoodScreenProps = {
   monsterName: string;
   selectedAccessory?: AccessoryKey;
+  selectedMonsterColor: string;
   onBack: () => void;
 };
 
@@ -19,7 +20,7 @@ const moods = [
   ['😡', 'Boos'],
 ];
 
-export default function ChildMoodScreen({ monsterName, selectedAccessory, onBack }: ChildMoodScreenProps) {
+export default function ChildMoodScreen({ monsterName, selectedAccessory, selectedMonsterColor, onBack }: ChildMoodScreenProps) {
   return (
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <View style={styles.topRow}>
@@ -31,7 +32,7 @@ export default function ChildMoodScreen({ monsterName, selectedAccessory, onBack
       </View>
 
       <View style={styles.previewCard}>
-        <MonsterPreview accessory={selectedAccessory} size={150} />
+        <MonsterPreview accessory={selectedAccessory} color={selectedMonsterColor} size={150} />
         <Text style={styles.previewText}>Vertel {monsterName || 'je monstertje'} hoe je je voelt...</Text>
       </View>
 

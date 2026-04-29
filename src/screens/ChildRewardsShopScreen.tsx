@@ -7,6 +7,7 @@ import { MonsterPreview, type AccessoryKey } from '../components/MonsterPreview'
 type ChildRewardsShopScreenProps = {
   monsterName: string;
   selectedAccessory?: AccessoryKey;
+  selectedMonsterColor: string;
   coins: number;
   onBack: () => void;
   onSelectAccessory: (accessory: AccessoryKey) => void;
@@ -24,7 +25,7 @@ const items: Array<{ id: AccessoryKey; name: string; category: string; cost?: nu
 
 const categories = ['Alle', 'Hoofd', 'Gezicht', 'Lichaam'];
 
-export default function ChildRewardsShopScreen({ monsterName, selectedAccessory, coins, onBack, onSelectAccessory }: ChildRewardsShopScreenProps) {
+export default function ChildRewardsShopScreen({ monsterName, selectedAccessory, selectedMonsterColor, coins, onBack, onSelectAccessory }: ChildRewardsShopScreenProps) {
   const selectedAccessoryName = selectedAccessory ? items.find((item) => item.id === selectedAccessory)?.name ?? 'je keuze' : 'je keuze';
 
   return (
@@ -43,7 +44,7 @@ export default function ChildRewardsShopScreen({ monsterName, selectedAccessory,
       <View style={styles.previewCard}>
         <Text style={styles.previewText}>Zo ziet {monsterName || 'je monstertje'} eruit met {selectedAccessoryName}</Text>
         <View style={styles.previewBox}>
-          <MonsterPreview accessory={selectedAccessory} size={180} />
+          <MonsterPreview accessory={selectedAccessory} color={selectedMonsterColor} size={180} />
         </View>
       </View>
 

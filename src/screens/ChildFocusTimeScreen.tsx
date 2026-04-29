@@ -8,12 +8,13 @@ import { MonsterPreview, type AccessoryKey } from '../components/MonsterPreview'
 type ChildFocusTimeScreenProps = {
   monsterName: string;
   selectedAccessory?: AccessoryKey;
+  selectedMonsterColor: string;
   onBack: () => void;
 };
 
 const durations = [5, 10, 15, 25] as const;
 
-export default function ChildFocusTimeScreen({ monsterName, selectedAccessory, onBack }: ChildFocusTimeScreenProps) {
+export default function ChildFocusTimeScreen({ monsterName, selectedAccessory, selectedMonsterColor, onBack }: ChildFocusTimeScreenProps) {
   const [selectedMinutes, setSelectedMinutes] = useState<(typeof durations)[number] | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const [remaining, setRemaining] = useState(0);
@@ -52,7 +53,7 @@ export default function ChildFocusTimeScreen({ monsterName, selectedAccessory, o
 
         <View style={styles.ringWrap}>
           <View style={styles.ring}>
-            <MonsterPreview accessory={selectedAccessory} size={120} />
+            <MonsterPreview accessory={selectedAccessory} color={selectedMonsterColor} size={120} />
           </View>
         </View>
 

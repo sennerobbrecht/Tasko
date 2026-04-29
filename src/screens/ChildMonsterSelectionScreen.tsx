@@ -1,16 +1,29 @@
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useState } from 'react';
 
+import { MONSTER_COLORS } from '../components/MonsterPreview';
+import { MonsterModel3D } from '../components/MonsterModel3D';
 import colors from '../theme/colors';
 
 type ChildMonsterSelectionScreenProps = {
   onBack?: () => void;
-  onContinue?: (monsterName: string) => void;
+  onContinue?: (monsterName: string, selectedColor: string) => void;
 };
 
 export default function ChildMonsterSelectionScreen({ onBack, onContinue }: ChildMonsterSelectionScreenProps) {
   const [monsterName, setMonsterName] = useState('');
+  const [selectedColorIndex, setSelectedColorIndex] = useState(0);
+
+  const selectedColor = MONSTER_COLORS[selectedColorIndex];
+
+  const goToPreviousColor = () => {
+    setSelectedColorIndex((index) => (index - 1 + MONSTER_COLORS.length) % MONSTER_COLORS.length);
+  };
+
+  const goToNextColor = () => {
+    setSelectedColorIndex((index) => (index + 1) % MONSTER_COLORS.length);
+  };
 
   return (
     <View style={styles.screen}>
@@ -23,27 +36,20 @@ export default function ChildMonsterSelectionScreen({ onBack, onContinue }: Chil
         <Text style={styles.subtitle}>Swipe om verschillende kleuren te zien</Text>
 
         <View style={styles.carouselRow}>
-          <NavCircle symbol="‹" />
+          <NavCircle symbol="‹" onPress={goToPreviousColor} />
           <View style={styles.monsterFrame}>
-            <View style={styles.monsterBody}>
-              <View style={styles.monsterGlow} />
-              <View style={styles.monsterFace} />
-              <View style={[styles.horn, styles.hornLeft]} />
-              <View style={[styles.horn, styles.hornRight]} />
-              <View style={styles.monsterEyeLeft} />
-              <View style={styles.monsterEyeRight} />
-              <View style={styles.monsterSmile} />
-            </View>
+            <MonsterModel3D color={selectedColor} size={160} />
           </View>
-          <NavCircle symbol=">" />
+          <NavCircle symbol=">" onPress={goToNextColor} />
         </View>
 
         <View style={styles.dotsRow}>
-          <View style={styles.dot} />
-          <View style={styles.dot} />
-          <View style={styles.dot} />
-          <View style={styles.dot} />
-          <View style={[styles.dot, styles.dotActive]} />
+          {MONSTER_COLORS.map((color, index) => {
+            const isActive = index === selectedColorIndex;
+            return (
+              <Pressable key={color} onPress={() => setSelectedColorIndex(index)} style={[styles.dot, { backgroundColor: color }, isActive && styles.dotActive]} />
+            );
+          })}
         </View>
 
         <Text style={styles.sectionTitle}>Geef jouw monster een naam</Text>
@@ -63,7 +69,7 @@ export default function ChildMonsterSelectionScreen({ onBack, onContinue }: Chil
 
         <Text style={styles.helper}>{monsterName.length}/20 karakters</Text>
 
-        <TouchableOpacity activeOpacity={0.9} onPress={() => onContinue?.(monsterName)} style={styles.primaryButton}>
+        <TouchableOpacity activeOpacity={0.9} onPress={() => onContinue?.(monsterName, selectedColor)} style={styles.primaryButton}>
           <Text style={styles.primaryText}>Ga verder</Text>
         </TouchableOpacity>
       </View>
@@ -73,11 +79,11 @@ export default function ChildMonsterSelectionScreen({ onBack, onContinue }: Chil
   );
 }
 
-function NavCircle({ symbol }: { symbol: string }) {
+function NavCircle({ symbol, onPress }: { symbol: string; onPress: () => void }) {
   return (
-    <View style={styles.navCircle}>
+    <Pressable onPress={onPress} style={styles.navCircle}>
       <Text style={styles.navSymbol}>{symbol}</Text>
-    </View>
+    </Pressable>
   );
 }
 
@@ -148,76 +154,10 @@ const styles = StyleSheet.create({
     width: 166,
     height: 166,
     backgroundColor: '#1A1A1A',
+    borderRadius: 14,
+    overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  monsterBody: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: '#D6F7FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-  },
-  monsterGlow: {
-    position: 'absolute',
-    width: 128,
-    height: 128,
-    borderRadius: 64,
-    backgroundColor: '#C5FFF5',
-    opacity: 0.7,
-  },
-  monsterFace: {
-    position: 'absolute',
-    bottom: 14,
-    width: 88,
-    height: 58,
-    borderRadius: 40,
-    backgroundColor: '#FFFFFF',
-  },
-  horn: {
-    position: 'absolute',
-    top: 8,
-    width: 22,
-    height: 34,
-    borderRadius: 11,
-    backgroundColor: '#FFFFFF',
-    transform: [{ rotate: '16deg' }],
-  },
-  hornLeft: {
-    left: 18,
-  },
-  hornRight: {
-    right: 18,
-    transform: [{ rotate: '-16deg' }],
-  },
-  monsterEyeLeft: {
-    position: 'absolute',
-    top: 54,
-    left: 33,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#2D6C7A',
-  },
-  monsterEyeRight: {
-    position: 'absolute',
-    top: 54,
-    right: 33,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#2D6C7A',
-  },
-  monsterSmile: {
-    position: 'absolute',
-    bottom: 23,
-    width: 42,
-    height: 12,
-    borderBottomWidth: 3,
-    borderBottomColor: '#FFFFFF',
-    borderRadius: 30,
   },
   dotsRow: {
     marginTop: 28,
@@ -226,14 +166,16 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   dot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#CFEAF0',
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: '#D0DEE8',
   },
   dotActive: {
-    width: 42,
-    backgroundColor: '#58C9D7',
+    transform: [{ scale: 1.25 }],
+    borderColor: '#58C9D7',
+    borderWidth: 2,
   },
   sectionTitle: {
     textAlign: 'center',

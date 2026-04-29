@@ -20,7 +20,7 @@ import ParentDashboardScreen from './src/screens/ParentDashboardScreen';
 import PremiumScreen from './src/screens/PremiumScreen';
 import { getSessionUser, signInParent, signOutCurrentUser, signUpParent } from './src/services/auth';
 import { ensureFamilyForCurrentUser, loginChildWithCodeAndName } from './src/services/families';
-import type { AccessoryKey } from './src/components/MonsterPreview';
+import { MONSTER_COLORS, type AccessoryKey } from './src/components/MonsterPreview';
 
 type User = {
   id: string;
@@ -54,6 +54,7 @@ export default function App() {
 	const [pendingInviteCode, setPendingInviteCode] = useState<string | null>(null);
 	const [monsterName, setMonsterName] = useState('');
 	const [selectedAccessory, setSelectedAccessory] = useState<AccessoryKey | undefined>(undefined);
+	const [selectedMonsterColor, setSelectedMonsterColor] = useState<string>(MONSTER_COLORS[0]);
 	const [coins] = useState(0);
 	const [level] = useState(0);
 	const [streakDays] = useState(0);
@@ -103,6 +104,7 @@ export default function App() {
 			<ChildHomeScreen
 				monsterName={monsterName}
 				selectedAccessory={selectedAccessory}
+				selectedMonsterColor={selectedMonsterColor}
 				coins={coins}
 				level={level}
 				streakDays={streakDays}
@@ -121,6 +123,7 @@ export default function App() {
 			<ChildRewardsShopScreen
 				monsterName={monsterName}
 				selectedAccessory={selectedAccessory}
+				selectedMonsterColor={selectedMonsterColor}
 				coins={coins}
 				onBack={() => setScreen('childHome')}
 				onSelectAccessory={setSelectedAccessory}
@@ -133,11 +136,11 @@ export default function App() {
 	}
 
 	if (screen === 'childFocusTime') {
-		return <ChildFocusTimeScreen monsterName={monsterName} selectedAccessory={selectedAccessory} onBack={() => setScreen('childHome')} />;
+		return <ChildFocusTimeScreen monsterName={monsterName} selectedAccessory={selectedAccessory} selectedMonsterColor={selectedMonsterColor} onBack={() => setScreen('childHome')} />;
 	}
 
 	if (screen === 'childMood') {
-		return <ChildMoodScreen monsterName={monsterName} selectedAccessory={selectedAccessory} onBack={() => setScreen('childHome')} />;
+		return <ChildMoodScreen monsterName={monsterName} selectedAccessory={selectedAccessory} selectedMonsterColor={selectedMonsterColor} onBack={() => setScreen('childHome')} />;
 	}
 
 	if (screen === 'premium') {
@@ -208,6 +211,7 @@ export default function App() {
 
 					setMonsterName(data?.display_name || username.trim());
 					setSelectedAccessory(undefined);
+					setSelectedMonsterColor(MONSTER_COLORS[0]);
 					setScreen('childHome');
 					return null;
 				}}
@@ -248,8 +252,9 @@ export default function App() {
 		return (
 			<ChildMonsterSelectionScreen
 				onBack={() => setScreen('childReward')}
-				onContinue={(name) => {
+				onContinue={(name, color) => {
 					setMonsterName(name.trim());
+					setSelectedMonsterColor(color);
 					setSelectedAccessory(undefined);
 					setScreen('childHome');
 				}}
