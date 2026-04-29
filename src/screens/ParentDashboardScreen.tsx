@@ -10,6 +10,7 @@ import { getCurrentFamily, getFamilyChildren, createTeamInviteForCurrentFamily, 
 import { supabase } from '../lib/supabase';
 import * as Clipboard from 'expo-clipboard';
 import { changePassword } from '../services/auth';
+import { getWeekMoodsForFamily, type MoodKey } from '../services/moods';
 
 type User = {
   id: string;
@@ -30,6 +31,14 @@ type RoutineTask = {
   id: string;
   label: string;
   done: boolean;
+};
+
+const MOOD_TO_EMOJI: Record<MoodKey, string> = {
+  happy: '😊',
+  content: '😌',
+  neutral: '😐',
+  stressed: '😣',
+  sad: '😢',
 };
 
 const TEMPLATES = [
@@ -81,6 +90,7 @@ export default function ParentDashboardScreen({ currentUser, onLogout, onOpenPre
   const [weekCompletions, setWeekCompletions] = useState(0);
   const [streakDays, setStreakDays] = useState(0);
   const [completionsLoading, setCompletionsLoading] = useState(true);
+  const [weekMoodByDay, setWeekMoodByDay] = useState<Record<string, string>>({});
 
   const selectedTemplate = useMemo(
     () => TEMPLATES.find((template) => template.id === selectedTemplateId) ?? TEMPLATES[0],
@@ -278,10 +288,35 @@ export default function ParentDashboardScreen({ currentUser, onLogout, onOpenPre
       setCompletionsLoading(false);
     };
 
+    const fetchMoodStats = async () => {
+      const today = new Date();
+      const weekStart = new Date(today);
+      const day = weekStart.getDay();
+      const diff = day === 0 ? 6 : day - 1;
+      weekStart.setDate(weekStart.getDate() - diff);
+      weekStart.setHours(0, 0, 0, 0);
+
+      const { data, error } = await getWeekMoodsForFamily(weekStart.toISOString());
+
+      if (!isMounted || error || !data) {
+        return;
+      }
+
+      const byDay: Record<string, string> = {};
+      data.forEach((entry) => {
+        const dayKey = new Date(entry.created_at).toISOString().slice(0, 10);
+        if (!byDay[dayKey]) {
+          byDay[dayKey] = MOOD_TO_EMOJI[entry.mood as MoodKey] ?? '—';
+        }
+      });
+      setWeekMoodByDay(byDay);
+    };
+
     fetchRoutines();
     fetchFamily();
     fetchAccountInfo();
     fetchCompletionStats();
+    fetchMoodStats();
 
     const routinesChannel = supabase
       .channel('parent-routines-live')
@@ -294,6 +329,11 @@ export default function ParentDashboardScreen({ currentUser, onLogout, onOpenPre
       .on('postgres_changes', { event: '*', schema: 'public', table: 'task_completions' }, fetchCompletionStats)
       .subscribe();
 
+    const moodsChannel = supabase
+      .channel('parent-moods-live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'mood_entries' }, fetchMoodStats)
+      .subscribe();
+
     const authSubscription = supabase.auth.onAuthStateChange(() => {
       fetchAccountInfo();
       fetchFamily();
@@ -303,6 +343,7 @@ export default function ParentDashboardScreen({ currentUser, onLogout, onOpenPre
       isMounted = false;
       supabase.removeChannel(routinesChannel);
       supabase.removeChannel(completionsChannel);
+      supabase.removeChannel(moodsChannel);
       authSubscription.data.subscription.unsubscribe();
     };
   }, [currentUser?.email, currentUser?.name]);
@@ -889,11 +930,20 @@ export default function ParentDashboardScreen({ currentUser, onLogout, onOpenPre
               </View>
 
               <View style={styles.emojiRow}>
-                {['🙂', '😊', '😐', '😕', '😴'].map((emoji) => (
-                  <View key={emoji} style={styles.emojiPill}>
-                    <Text>{emoji}</Text>
-                  </View>
-                ))}
+                {['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo'].map((day, index) => {
+                  const now = new Date();
+                  const startOfWeek = new Date(now);
+                  const jsDay = startOfWeek.getDay();
+                  const diff = jsDay === 0 ? 6 : jsDay - 1;
+                  startOfWeek.setDate(startOfWeek.getDate() - diff + index);
+                  const key = startOfWeek.toISOString().slice(0, 10);
+
+                  return (
+                    <View key={day} style={styles.emojiPill}>
+                      <Text>{weekMoodByDay[key] ?? '—'}</Text>
+                    </View>
+                  );
+                })}
               </View>
 
               <View style={styles.chartShell}>

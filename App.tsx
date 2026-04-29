@@ -19,7 +19,7 @@ import ChildMoodScreen from './src/screens/ChildMoodScreen';
 import ParentDashboardScreen from './src/screens/ParentDashboardScreen';
 import PremiumScreen from './src/screens/PremiumScreen';
 import { getSessionUser, signInParent, signOutCurrentUser, signUpParent } from './src/services/auth';
-import { ensureFamilyForCurrentUser, loginChildWithCodeAndName } from './src/services/families';
+import { createChildFromInvite, ensureFamilyForCurrentUser, loginChildWithCodeAndName } from './src/services/families';
 import { MONSTER_COLORS, type AccessoryKey } from './src/components/MonsterPreview';
 
 type User = {
@@ -52,6 +52,7 @@ export default function App() {
 	const [isAuthBootstrapDone, setIsAuthBootstrapDone] = useState(false);
 	const [currentUser, setCurrentUser] = useState<User | null>(null);
 	const [pendingInviteCode, setPendingInviteCode] = useState<string | null>(null);
+	const [childProfileId, setChildProfileId] = useState<string | null>(null);
 	const [monsterName, setMonsterName] = useState('');
 	const [selectedAccessory, setSelectedAccessory] = useState<AccessoryKey | undefined>(undefined);
 	const [selectedMonsterColor, setSelectedMonsterColor] = useState<string>(MONSTER_COLORS[0]);
@@ -224,7 +225,15 @@ export default function App() {
 	}
 
 	if (screen === 'childMood') {
-		return <ChildMoodScreen monsterName={monsterName} selectedAccessory={selectedAccessory} selectedMonsterColor={selectedMonsterColor} onBack={() => setScreen('childHome')} />;
+		return (
+			<ChildMoodScreen
+				childId={childProfileId}
+				monsterName={monsterName}
+				selectedAccessory={selectedAccessory}
+				selectedMonsterColor={selectedMonsterColor}
+				onBack={() => setScreen('childHome')}
+			/>
+		);
 	}
 
 	if (screen === 'premium') {
@@ -294,6 +303,7 @@ export default function App() {
 					}
 
 					setMonsterName(data?.display_name || username.trim());
+					setChildProfileId(data?.id || null);
 					setSelectedAccessory(undefined);
 					setSelectedMonsterColor(MONSTER_COLORS[0]);
 					setScreen('childHome');
@@ -337,9 +347,28 @@ export default function App() {
 			<ChildMonsterSelectionScreen
 				onBack={() => setScreen('childReward')}
 				onContinue={(name) => {
-					setMonsterName(name.trim());
-					setSelectedAccessory(undefined);
-					setScreen('childHome');
+					const trimmedName = name.trim();
+					if (!trimmedName) {
+						Alert.alert('Naam nodig', 'Geef je monstertje eerst een naam.');
+						return;
+					}
+
+					const finalize = async () => {
+						if (pendingInviteCode) {
+							const { data, error } = await createChildFromInvite(pendingInviteCode, trimmedName);
+							if (error) {
+								Alert.alert('Opslaan mislukt', error.message || 'Kon het kindprofiel niet aanmaken.');
+								return;
+							}
+							setChildProfileId(data?.id ?? null);
+						}
+
+						setMonsterName(trimmedName);
+						setSelectedAccessory(undefined);
+						setScreen('childHome');
+					};
+
+					finalize();
 				}}
 			/>
 		);
