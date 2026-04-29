@@ -1,29 +1,17 @@
 import { StatusBar } from 'expo-status-bar';
-import { Pressable, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useState } from 'react';
 
-import { MONSTER_COLORS } from '../components/MonsterPreview';
 import { MonsterModel3D } from '../components/MonsterModel3D';
 import colors from '../theme/colors';
 
 type ChildMonsterSelectionScreenProps = {
   onBack?: () => void;
-  onContinue?: (monsterName: string, selectedColor: string) => void;
+  onContinue?: (monsterName: string) => void;
 };
 
 export default function ChildMonsterSelectionScreen({ onBack, onContinue }: ChildMonsterSelectionScreenProps) {
   const [monsterName, setMonsterName] = useState('');
-  const [selectedColorIndex, setSelectedColorIndex] = useState(0);
-
-  const selectedColor = MONSTER_COLORS[selectedColorIndex];
-
-  const goToPreviousColor = () => {
-    setSelectedColorIndex((index) => (index - 1 + MONSTER_COLORS.length) % MONSTER_COLORS.length);
-  };
-
-  const goToNextColor = () => {
-    setSelectedColorIndex((index) => (index + 1) % MONSTER_COLORS.length);
-  };
 
   return (
     <View style={styles.screen}>
@@ -32,24 +20,10 @@ export default function ChildMonsterSelectionScreen({ onBack, onContinue }: Chil
           <Text style={styles.backArrow}>←</Text>
         </TouchableOpacity>
 
-        <Text style={styles.title}>Kies jouw monstertje</Text>
-        <Text style={styles.subtitle}>Swipe om verschillende kleuren te zien</Text>
+        <Text style={styles.title}>Jouw monstertje</Text>
 
-        <View style={styles.carouselRow}>
-          <NavCircle symbol="‹" onPress={goToPreviousColor} />
-          <View style={styles.monsterFrame}>
-            <MonsterModel3D color={selectedColor} size={160} />
-          </View>
-          <NavCircle symbol=">" onPress={goToNextColor} />
-        </View>
-
-        <View style={styles.dotsRow}>
-          {MONSTER_COLORS.map((color, index) => {
-            const isActive = index === selectedColorIndex;
-            return (
-              <Pressable key={color} onPress={() => setSelectedColorIndex(index)} style={[styles.dot, { backgroundColor: color }, isActive && styles.dotActive]} />
-            );
-          })}
+        <View style={styles.monsterFrame}>
+          <MonsterModel3D color="#D6F7FF" size={230} />
         </View>
 
         <Text style={styles.sectionTitle}>Geef jouw monster een naam</Text>
@@ -69,21 +43,13 @@ export default function ChildMonsterSelectionScreen({ onBack, onContinue }: Chil
 
         <Text style={styles.helper}>{monsterName.length}/20 karakters</Text>
 
-        <TouchableOpacity activeOpacity={0.9} onPress={() => onContinue?.(monsterName, selectedColor)} style={styles.primaryButton}>
+        <TouchableOpacity activeOpacity={0.9} onPress={() => onContinue?.(monsterName)} style={styles.primaryButton}>
           <Text style={styles.primaryText}>Ga verder</Text>
         </TouchableOpacity>
       </View>
 
       <StatusBar style="dark" />
     </View>
-  );
-}
-
-function NavCircle({ symbol, onPress }: { symbol: string; onPress: () => void }) {
-  return (
-    <Pressable onPress={onPress} style={styles.navCircle}>
-      <Text style={styles.navSymbol}>{symbol}</Text>
-    </Pressable>
   );
 }
 
@@ -117,65 +83,11 @@ const styles = StyleSheet.create({
     color: colors.textStrong,
     marginTop: 10,
   },
-  subtitle: {
-    textAlign: 'center',
-    fontSize: 18,
-    lineHeight: 26,
-    color: '#8A97A9',
-    marginTop: 14,
-  },
-  carouselRow: {
-    marginTop: 32,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  navCircle: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    backgroundColor: colors.white,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#BFEAF0',
-    shadowColor: colors.shadow,
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 3,
-  },
-  navSymbol: {
-    fontSize: 28,
-    color: colors.primary,
-    fontWeight: '900',
-  },
   monsterFrame: {
-    width: 166,
-    height: 166,
-    backgroundColor: '#1A1A1A',
-    borderRadius: 14,
-    overflow: 'hidden',
+    marginTop: 32,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  dotsRow: {
-    marginTop: 28,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 10,
-  },
-  dot: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    borderWidth: 1,
-    borderColor: '#D0DEE8',
-  },
-  dotActive: {
-    transform: [{ scale: 1.25 }],
-    borderColor: '#58C9D7',
-    borderWidth: 2,
+    minHeight: 248,
   },
   sectionTitle: {
     textAlign: 'center',

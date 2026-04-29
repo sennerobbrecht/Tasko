@@ -1,44 +1,96 @@
 import { StatusBar } from 'expo-status-bar';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Audio } from 'expo-av';
 
 import colors from '../theme/colors';
-import { MonsterPreview, type AccessoryKey } from '../components/MonsterPreview';
+import { type AccessoryKey } from '../components/MonsterPreview';
+import { MonsterModel3D } from '../components/MonsterModel3D';
 
 type ChildFocusTimeScreenProps = {
   monsterName: string;
   selectedAccessory?: AccessoryKey;
   selectedMonsterColor: string;
+  selectedMinutes: (typeof durations)[number] | null;
+  remainingSeconds: number;
+  endAtMs: number | null;
+  isRunning: boolean;
+  onSelectMinutes: (minutes: (typeof durations)[number]) => void;
+  onToggle: () => void;
+  onReset: () => void;
+  onTimeUp: () => void;
   onBack: () => void;
 };
 
 const durations = [5, 10, 15, 25] as const;
 
-export default function ChildFocusTimeScreen({ monsterName, selectedAccessory, selectedMonsterColor, onBack }: ChildFocusTimeScreenProps) {
-  const [selectedMinutes, setSelectedMinutes] = useState<(typeof durations)[number] | null>(null);
-  const [isRunning, setIsRunning] = useState(false);
-  const [remaining, setRemaining] = useState(0);
+export default function ChildFocusTimeScreen({
+  monsterName,
+  selectedAccessory,
+  selectedMonsterColor,
+  selectedMinutes,
+  remainingSeconds,
+  endAtMs,
+  isRunning,
+  onSelectMinutes,
+  onToggle,
+  onReset,
+  onTimeUp,
+  onBack,
+}: ChildFocusTimeScreenProps) {
+  const [displayRemaining, setDisplayRemaining] = useState(remainingSeconds);
+  const didRingRef = useRef(false);
 
   useEffect(() => {
-    setRemaining(selectedMinutes ? selectedMinutes * 60 : 0);
-    setIsRunning(false);
-  }, [selectedMinutes]);
+    if (!isRunning || !endAtMs) {
+      setDisplayRemaining(remainingSeconds);
+      return;
+    }
 
-  useEffect(() => {
-    if (!isRunning) return undefined;
+    const update = () => {
+      const remaining = Math.max(0, Math.ceil((endAtMs - Date.now()) / 1000));
+      setDisplayRemaining(remaining);
+    };
 
-    const timer = setInterval(() => {
-      setRemaining((value) => Math.max(0, value - 1));
-    }, 1000);
-
+    update();
+    const timer = setInterval(update, 250);
     return () => clearInterval(timer);
-  }, [isRunning]);
+  }, [endAtMs, isRunning, remainingSeconds]);
+
+  useEffect(() => {
+    const playDoneSound = async () => {
+      try {
+        const { sound } = await Audio.Sound.createAsync({
+          uri: 'https://actions.google.com/sounds/v1/alarms/beep_short.ogg',
+        });
+        await sound.playAsync();
+        sound.setOnPlaybackStatusUpdate((status) => {
+          if ('didJustFinish' in status && status.didJustFinish) {
+            sound.unloadAsync();
+          }
+        });
+      } catch {
+        // Skip sound if device/network blocks playback.
+      }
+    };
+
+    if (isRunning && displayRemaining <= 0 && !didRingRef.current) {
+      didRingRef.current = true;
+      onTimeUp();
+      playDoneSound();
+      return;
+    }
+
+    if (displayRemaining > 0) {
+      didRingRef.current = false;
+    }
+  }, [displayRemaining, isRunning, onTimeUp]);
 
   const timeLabel = useMemo(() => {
-    const minutes = Math.floor(remaining / 60).toString().padStart(2, '0');
-    const seconds = (remaining % 60).toString().padStart(2, '0');
+    const minutes = Math.floor(displayRemaining / 60).toString().padStart(2, '0');
+    const seconds = (displayRemaining % 60).toString().padStart(2, '0');
     return `${minutes}:${seconds}`;
-  }, [remaining]);
+  }, [displayRemaining]);
 
   return (
     <View style={styles.screen}>
@@ -53,7 +105,7 @@ export default function ChildFocusTimeScreen({ monsterName, selectedAccessory, s
 
         <View style={styles.ringWrap}>
           <View style={styles.ring}>
-            <MonsterPreview accessory={selectedAccessory} color={selectedMonsterColor} size={120} />
+            <MonsterModel3D color={selectedMonsterColor} size={150} zoom={1.2} />
           </View>
         </View>
 
@@ -64,7 +116,7 @@ export default function ChildFocusTimeScreen({ monsterName, selectedAccessory, s
           {durations.map((duration) => {
             const active = duration === selectedMinutes;
             return (
-              <Pressable key={duration} onPress={() => setSelectedMinutes(duration)} style={({ pressed }) => [styles.durationButton, active && styles.durationButtonActive, pressed && styles.durationButtonPressed]}>
+              <Pressable key={duration} onPress={() => onSelectMinutes(duration)} style={({ pressed }) => [styles.durationButton, active && styles.durationButtonActive, pressed && styles.durationButtonPressed]}>
                 <Text style={[styles.durationIcon, active && styles.durationIconActive]}>{duration} min</Text>
               </Pressable>
             );
@@ -72,10 +124,10 @@ export default function ChildFocusTimeScreen({ monsterName, selectedAccessory, s
         </View>
 
         <View style={styles.controlsRow}>
-          <Pressable onPress={() => setIsRunning((value) => !value)} style={({ pressed }) => [styles.controlButton, styles.controlPrimary, pressed && styles.buttonPressed]}>
+          <Pressable onPress={onToggle} style={({ pressed }) => [styles.controlButton, styles.controlPrimary, pressed && styles.buttonPressed]}>
             <Text style={styles.controlText}>{isRunning ? '⏸' : '▶'}</Text>
           </Pressable>
-          <Pressable onPress={() => setRemaining(selectedMinutes ? selectedMinutes * 60 : 0)} style={({ pressed }) => [styles.controlButton, pressed && styles.buttonPressed]}>
+          <Pressable onPress={onReset} style={({ pressed }) => [styles.controlButton, pressed && styles.buttonPressed]}>
             <Text style={styles.controlTextMuted}>↻</Text>
           </Pressable>
         </View>

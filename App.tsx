@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import { Alert } from 'react-native';
+import { Alert, LogBox } from 'react-native';
 import ParentAccountScreen from './src/screens/ParentAccountScreen';
 import WelcomeScreen from './src/screens/WelcomeScreen';
 import LoginScreen from './src/screens/LoginScreen';
@@ -60,6 +60,46 @@ export default function App() {
 	const [streakDays] = useState(0);
 	const [tasksDone] = useState(0);
 	const [badgesUnlocked] = useState(0);
+	const [focusSelectedMinutes, setFocusSelectedMinutes] = useState<5 | 10 | 15 | 25 | null>(null);
+	const [focusRemainingSeconds, setFocusRemainingSeconds] = useState(0);
+	const [focusEndAtMs, setFocusEndAtMs] = useState<number | null>(null);
+	const [focusIsRunning, setFocusIsRunning] = useState(false);
+
+	useEffect(() => {
+		LogBox.ignoreLogs([
+			'THREE.WARNING: Multiple instances of Three.js being imported.',
+			'THREE.Clock: This module has been deprecated. Please use THREE.Timer instead.',
+			'THREE.WebGLRenderer: EXT_color_buffer_float extension not supported.',
+		]);
+
+		const originalWarn = console.warn;
+		const originalLog = console.log;
+
+		console.warn = (...args: unknown[]) => {
+			const first = String(args[0] ?? '');
+			if (
+				first.includes('THREE.WARNING: Multiple instances of Three.js being imported.') ||
+				first.includes('THREE.Clock: This module has been deprecated. Please use THREE.Timer instead.') ||
+				first.includes('THREE.WebGLRenderer: EXT_color_buffer_float extension not supported.')
+			) {
+				return;
+			}
+			originalWarn(...args);
+		};
+
+		console.log = (...args: unknown[]) => {
+			const first = String(args[0] ?? '');
+			if (first.includes("EXGL: gl.pixelStorei() doesn't support this parameter yet!")) {
+				return;
+			}
+			originalLog(...args);
+		};
+
+		return () => {
+			console.warn = originalWarn;
+			console.log = originalLog;
+		};
+	}, []);
 
 	useEffect(() => {
 		let isMounted = true;
@@ -136,7 +176,51 @@ export default function App() {
 	}
 
 	if (screen === 'childFocusTime') {
-		return <ChildFocusTimeScreen monsterName={monsterName} selectedAccessory={selectedAccessory} selectedMonsterColor={selectedMonsterColor} onBack={() => setScreen('childHome')} />;
+		return (
+			<ChildFocusTimeScreen
+				monsterName={monsterName}
+				selectedAccessory={selectedAccessory}
+				selectedMonsterColor={selectedMonsterColor}
+				selectedMinutes={focusSelectedMinutes}
+				remainingSeconds={focusRemainingSeconds}
+				endAtMs={focusEndAtMs}
+				isRunning={focusIsRunning}
+				onSelectMinutes={(minutes) => {
+					setFocusSelectedMinutes(minutes);
+					setFocusRemainingSeconds(minutes * 60);
+					setFocusIsRunning(false);
+					setFocusEndAtMs(null);
+				}}
+				onToggle={() => {
+					if (focusIsRunning) {
+						const remaining = focusEndAtMs ? Math.max(0, Math.ceil((focusEndAtMs - Date.now()) / 1000)) : focusRemainingSeconds;
+						setFocusRemainingSeconds(remaining);
+						setFocusIsRunning(false);
+						setFocusEndAtMs(null);
+						return;
+					}
+
+					if (focusRemainingSeconds <= 0) {
+						return;
+					}
+
+					setFocusIsRunning(true);
+					setFocusEndAtMs(Date.now() + focusRemainingSeconds * 1000);
+				}}
+				onReset={() => {
+					const resetSeconds = focusSelectedMinutes ? focusSelectedMinutes * 60 : 0;
+					setFocusRemainingSeconds(resetSeconds);
+					setFocusIsRunning(false);
+					setFocusEndAtMs(null);
+				}}
+				onTimeUp={() => {
+					setFocusRemainingSeconds(0);
+					setFocusIsRunning(false);
+					setFocusEndAtMs(null);
+				}}
+				onBack={() => setScreen('childHome')}
+			/>
+		);
 	}
 
 	if (screen === 'childMood') {
@@ -252,9 +336,8 @@ export default function App() {
 		return (
 			<ChildMonsterSelectionScreen
 				onBack={() => setScreen('childReward')}
-				onContinue={(name, color) => {
+				onContinue={(name) => {
 					setMonsterName(name.trim());
-					setSelectedMonsterColor(color);
 					setSelectedAccessory(undefined);
 					setScreen('childHome');
 				}}

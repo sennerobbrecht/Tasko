@@ -7,29 +7,41 @@ import * as THREE from 'three';
 type MonsterModel3DProps = {
   size?: number;
   color: string;
+  zoom?: number;
 };
 
 type LoadedModelProps = {
   color: string;
+  zoom: number;
 };
 
 function applyStrongTint(material: THREE.Material, color: string) {
   const tint = new THREE.Color(color);
+  const vividTint = tint.clone().offsetHSL(0, 0.08, -0.02);
 
   if ('color' in material && material.color instanceof THREE.Color) {
-    material.color = tint;
+    material.color = vividTint;
   }
 
   if ('emissive' in material && material.emissive instanceof THREE.Color) {
-    material.emissive = tint.clone().multiplyScalar(0.25);
+    material.emissive = vividTint.clone().multiplyScalar(0.5);
   }
 
   if ('emissiveIntensity' in material) {
-    (material as THREE.MeshStandardMaterial).emissiveIntensity = 0.45;
+    (material as THREE.MeshStandardMaterial).emissiveIntensity = 0.8;
+  }
+
+  if ('toneMapped' in material) {
+    (material as THREE.MeshStandardMaterial).toneMapped = false;
+  }
+
+  if ('map' in material) {
+    (material as THREE.MeshStandardMaterial).map = null;
+    material.needsUpdate = true;
   }
 }
 
-function LoadedModel({ color }: LoadedModelProps) {
+function LoadedModel({ color, zoom }: LoadedModelProps) {
   const gltf = useGLTF(require('../../assets/3d-models/Tasko.glb')) as { scene: THREE.Group };
 
   const scene = useMemo(() => {
@@ -53,20 +65,19 @@ function LoadedModel({ color }: LoadedModelProps) {
     return cloned;
   }, [color, gltf.scene]);
 
-  return <primitive object={scene} scale={2.3} position={[0, -1.45, 0]} />;
+  return <primitive object={scene} scale={1.9 * zoom} position={[0, -0.75, 0]} />;
 }
 
-export function MonsterModel3D({ size = 170, color }: MonsterModel3DProps) {
+export function MonsterModel3D({ size = 170, color, zoom = 1 }: MonsterModel3DProps) {
   return (
     <View style={[styles.shell, { width: size, height: size }]}>
-      <Canvas camera={{ position: [0, 0, 3.15], fov: 34 }}>
-        <color attach="background" args={['#111417']} />
+      <Canvas camera={{ position: [0, 0, 4.9], fov: 42 }}>
         <ambientLight intensity={1.05} />
         <directionalLight position={[2, 2, 3]} intensity={1.2} />
         <directionalLight position={[-2, 1, -1]} intensity={0.5} />
 
         <Suspense fallback={null}>
-          <LoadedModel color={color} />
+          <LoadedModel color={color} zoom={zoom} />
         </Suspense>
 
         <OrbitControls
@@ -89,6 +100,6 @@ const styles = StyleSheet.create({
   shell: {
     borderRadius: 14,
     overflow: 'hidden',
-    backgroundColor: '#111417',
+    backgroundColor: '#EEF4F7',
   },
 });
