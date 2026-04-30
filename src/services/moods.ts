@@ -36,3 +36,14 @@ export async function getWeekMoodsForFamily(fromIso: string) {
 
   return { data: (data as MoodEntry[] | null) ?? [], error };
 }
+
+export async function getWeekMoodsForChild(childId: string, fromIso: string) {
+  const { data, error } = await supabase
+    .from('mood_entries')
+    .select('child_id,mood,created_at')
+    .eq('child_id', childId)
+    .gte('created_at', fromIso)
+    .order('created_at', { ascending: false });
+
+  return { data: (data as MoodEntry[] | null) ?? [], error };
+}

@@ -3,8 +3,9 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { useEffect, useMemo, useState } from 'react';
 
 import colors from '../theme/colors';
-import { MonsterPreview, type AccessoryKey } from '../components/MonsterPreview';
-import { getTodayMoodForChild, saveMoodForToday, type MoodKey } from '../services/moods';
+import { type AccessoryKey } from '../components/MonsterPreview';
+import { MonsterModel3D } from '../components/MonsterModel3D';
+import { getTodayMoodForChild, getWeekMoodsForChild, saveMoodForToday, type MoodKey } from '../services/moods';
 import { MoodPickerGrid } from '../components/mood/MoodPickerGrid';
 import { MoodWeekCard } from '../components/mood/MoodWeekCard';
 
@@ -32,8 +33,16 @@ const moodEmojiMap: Record<MoodKey, string> = {
   sad: '😢',
 };
 
-export default function ChildMoodScreen({ childId, monsterName, selectedAccessory, selectedMonsterColor, onBack }: ChildMoodScreenProps) {
+const toLocalDayKey = (date: Date) => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
+export default function ChildMoodScreen({ childId, monsterName, selectedMonsterColor, onBack }: ChildMoodScreenProps) {
   const [selectedMood, setSelectedMood] = useState<MoodKey | null>(null);
+  const [weekMoodByDay, setWeekMoodByDay] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -45,6 +54,24 @@ export default function ChildMoodScreen({ childId, monsterName, selectedAccessor
       const { data } = await getTodayMoodForChild(childId);
       if (data?.mood) {
         setSelectedMood(data.mood);
+      }
+
+      const weekStart = new Date();
+      const jsDay = weekStart.getDay();
+      const diff = jsDay === 0 ? 6 : jsDay - 1;
+      weekStart.setDate(weekStart.getDate() - diff);
+      weekStart.setHours(0, 0, 0, 0);
+
+      const weekResult = await getWeekMoodsForChild(childId, weekStart.toISOString());
+      if (weekResult.data) {
+        const byDay: Record<string, string> = {};
+        weekResult.data.forEach((entry) => {
+          const dayKey = toLocalDayKey(new Date(entry.created_at));
+          if (!byDay[dayKey]) {
+            byDay[dayKey] = moodEmojiMap[entry.mood] ?? '—';
+          }
+        });
+        setWeekMoodByDay(byDay);
       }
     };
 
@@ -58,11 +85,21 @@ export default function ChildMoodScreen({ childId, monsterName, selectedAccessor
     const mondayIndex = jsDay === 0 ? 6 : jsDay - 1;
 
     return days.map((day, index) => ({
+      // Convert day index to current week date key.
+      key: (() => {
+        const date = new Date();
+        date.setDate(date.getDate() - mondayIndex + index);
+        return toLocalDayKey(date);
+      })(),
       day,
-      mood: index === mondayIndex && selectedMood ? moodEmojiMap[selectedMood] : '—',
+      mood: '—',
       active: index === mondayIndex,
+    })).map((entry) => ({
+      day: entry.day,
+      mood: weekMoodByDay[entry.key] ?? (entry.active && selectedMood ? moodEmojiMap[selectedMood] : '—'),
+      active: entry.active,
     }));
-  }, [selectedMood]);
+  }, [selectedMood, weekMoodByDay]);
 
   const handleSelectMood = async (mood: MoodKey) => {
     if (saving) {
@@ -81,7 +118,12 @@ export default function ChildMoodScreen({ childId, monsterName, selectedAccessor
     const { error } = await saveMoodForToday(childId, mood);
     if (error) {
       Alert.alert('Opslaan mislukt', error.message || 'Kon je gevoel niet opslaan.');
+      setSaving(false);
+      return;
     }
+
+    const todayKey = toLocalDayKey(new Date());
+    setWeekMoodByDay((prev) => ({ ...prev, [todayKey]: moodEmojiMap[mood] }));
     setSaving(false);
   };
 
@@ -96,7 +138,7 @@ export default function ChildMoodScreen({ childId, monsterName, selectedAccessor
       </View>
 
       <View style={styles.previewCard}>
-        <MonsterPreview accessory={selectedAccessory} color={selectedMonsterColor} size={150} />
+        <MonsterModel3D color={selectedMonsterColor} size={160} zoom={1.2} />
         <Text style={styles.previewText}>Vertel {monsterName || 'je monstertje'} hoe je je voelt...</Text>
       </View>
 
