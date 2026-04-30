@@ -21,6 +21,7 @@ import PremiumScreen from './src/screens/PremiumScreen';
 import { getSessionUser, signInParent, signOutCurrentUser, signUpParent } from './src/services/auth';
 import { createChildFromInvite, ensureFamilyForCurrentUser, loginChildWithCodeAndName } from './src/services/families';
 import { MONSTER_COLORS, type AccessoryKey } from './src/components/MonsterPreview';
+import { buyAccessoryForChild, getChildShopState } from './src/services/economy';
 
 type User = {
   id: string;
@@ -55,8 +56,9 @@ export default function App() {
 	const [childProfileId, setChildProfileId] = useState<string | null>(null);
 	const [monsterName, setMonsterName] = useState('');
 	const [selectedAccessory, setSelectedAccessory] = useState<AccessoryKey | undefined>(undefined);
+	const [ownedAccessories, setOwnedAccessories] = useState<AccessoryKey[]>([]);
 	const [selectedMonsterColor, setSelectedMonsterColor] = useState<string>(MONSTER_COLORS[0]);
-	const [coins] = useState(0);
+	const [coins, setCoins] = useState(0);
 	const [level] = useState(0);
 	const [streakDays] = useState(0);
 	const [tasksDone] = useState(0);
@@ -104,6 +106,35 @@ export default function App() {
 	}, []);
 
 	useEffect(() => {
+		let mounted = true;
+
+		const loadChildEconomy = async () => {
+			if (!childProfileId) {
+				if (mounted) {
+					setOwnedAccessories([]);
+				}
+				return;
+			}
+
+			const { data, error } = await getChildShopState(childProfileId);
+			if (!mounted || error || !data) {
+				return;
+			}
+
+			setCoins(data.coinBalance);
+			setOwnedAccessories(data.ownedAccessories);
+			if (!selectedAccessory && data.ownedAccessories.length > 0) {
+				setSelectedAccessory(data.ownedAccessories[0]);
+			}
+		};
+
+		loadChildEconomy();
+		return () => {
+			mounted = false;
+		};
+	}, [childProfileId]);
+
+	useEffect(() => {
 		let isMounted = true;
 
 		const bootstrap = async () => {
@@ -144,6 +175,7 @@ export default function App() {
 	if (screen === 'childHome') {
 		return (
 			<ChildHomeScreen
+				childId={childProfileId}
 				monsterName={monsterName}
 				selectedAccessory={selectedAccessory}
 				selectedMonsterColor={selectedMonsterColor}
@@ -156,6 +188,7 @@ export default function App() {
 				onOpenAchievements={() => setScreen('childAchievements')}
 				onOpenFocus={() => setScreen('childFocusTime')}
 				onOpenMood={() => setScreen('childMood')}
+				onCoinsChange={setCoins}
 			/>
 		);
 	}
@@ -163,12 +196,36 @@ export default function App() {
 	if (screen === 'childRewardsShop') {
 		return (
 			<ChildRewardsShopScreen
+				childId={childProfileId}
 				monsterName={monsterName}
 				selectedAccessory={selectedAccessory}
 				selectedMonsterColor={selectedMonsterColor}
 				coins={coins}
+				ownedAccessories={ownedAccessories}
 				onBack={() => setScreen('childHome')}
 				onSelectAccessory={setSelectedAccessory}
+				onBuyAccessory={async (accessory, cost) => {
+					if (!childProfileId) {
+						return { success: false, message: 'Geen kindprofiel gevonden', newBalance: coins };
+					}
+
+					const { data, error } = await buyAccessoryForChild({
+						childId: childProfileId,
+						accessoryKey: accessory,
+						cost,
+					});
+
+					if (error || !data) {
+						return { success: false, message: error?.message ?? 'Kon accessoire niet kopen', newBalance: coins };
+					}
+
+					if (data.success) {
+						setCoins(data.new_balance);
+						setOwnedAccessories((prev) => (prev.includes(accessory) ? prev : [...prev, accessory]));
+					}
+
+					return { success: data.success, message: data.message, newBalance: data.new_balance };
+				}}
 			/>
 		);
 	}
@@ -314,6 +371,7 @@ export default function App() {
 					setMonsterName(data?.display_name || username.trim());
 					setChildProfileId(data?.id || null);
 					setSelectedAccessory(undefined);
+					setOwnedAccessories([]);
 					setSelectedMonsterColor(MONSTER_COLORS[0]);
 					setScreen('childHome');
 					return null;
@@ -374,6 +432,7 @@ export default function App() {
 
 						setMonsterName(trimmedName);
 						setSelectedAccessory(undefined);
+					setOwnedAccessories([]);
 						setScreen('childHome');
 					};
 

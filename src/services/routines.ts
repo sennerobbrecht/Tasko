@@ -28,6 +28,16 @@ export type RoutineTaskInput = {
   is_required?: boolean;
 };
 
+export type ChildRoutineTask = {
+  routine_task_id: string;
+  routine_id: string;
+  routine_title: string;
+  task_title: string;
+  sort_order: number;
+  reward_points: number;
+  is_completed: boolean;
+};
+
 export async function getCurrentFamilyRoutines(): Promise<{ data: RoutineSummary[]; error: Error | null }> {
   const { family, error: familyError } = await getCurrentFamily();
   if (familyError) {
@@ -146,6 +156,54 @@ export async function createRoutineWithTasks({
 
   return {
     data: routine as RoutineSummary,
+    error: null,
+  };
+}
+
+export async function getTodayRoutineTasksForChild(
+  childId: string,
+): Promise<{ data: ChildRoutineTask[]; error: Error | null }> {
+  const { data, error } = await supabase.rpc('get_today_routine_tasks_for_child', {
+    p_child_id: childId,
+  });
+
+  if (error) {
+    return { data: [], error };
+  }
+
+  return {
+    data: (data ?? []) as ChildRoutineTask[],
+    error: null,
+  };
+}
+
+export async function setTaskCompletionForChild({
+  childId,
+  routineTaskId,
+  completed,
+}: {
+  childId: string;
+  routineTaskId: string;
+  completed: boolean;
+}): Promise<{
+  data: { awarded_points: number; bonus_points: number; total_awarded_points: number; new_balance: number } | null;
+  error: Error | null;
+}> {
+  const { data, error } = await supabase.rpc('set_task_completion_for_child', {
+    p_child_id: childId,
+    p_routine_task_id: routineTaskId,
+    p_completed: completed,
+  });
+
+  if (error) {
+    return { data: null, error };
+  }
+
+  const firstRow = Array.isArray(data) ? data[0] : data;
+  return {
+    data:
+      (firstRow as { awarded_points: number; bonus_points: number; total_awarded_points: number; new_balance: number } | null) ??
+      { awarded_points: 0, bonus_points: 0, total_awarded_points: 0, new_balance: 0 },
     error: null,
   };
 }

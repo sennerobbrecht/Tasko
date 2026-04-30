@@ -458,7 +458,7 @@ export default function ParentDashboardScreen({ currentUser, onLogout, onOpenPre
         tasks: selectedTasks.map((task, index) => ({
           title: task.label,
           sort_order: index,
-          reward_points: 0,
+          reward_points: 3,
           is_required: true,
         })),
       });
@@ -476,7 +476,7 @@ export default function ParentDashboardScreen({ currentUser, onLogout, onOpenPre
             id: `${data.id}-${index}`,
             title: task.label,
             sort_order: index,
-            reward_points: 0,
+            reward_points: 3,
             is_required: true,
           })),
         },

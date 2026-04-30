@@ -1,11 +1,15 @@
+import { useEffect, useMemo, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import colors from '../theme/colors';
 import { type AccessoryKey } from '../components/MonsterPreview';
 import { MonsterModel3D } from '../components/MonsterModel3D';
+import { supabase } from '../lib/supabase';
+import { getTodayRoutineTasksForChild, setTaskCompletionForChild, type ChildRoutineTask } from '../services/routines';
 
 type ChildHomeScreenProps = {
+  childId?: string | null;
   monsterName: string;
   selectedAccessory?: AccessoryKey;
   selectedMonsterColor: string;
@@ -18,21 +22,11 @@ type ChildHomeScreenProps = {
   onOpenAchievements: () => void;
   onOpenFocus: () => void;
   onOpenMood: () => void;
+  onCoinsChange?: (nextCoins: number) => void;
 };
-
-type ChildRoutine = {
-  title: string;
-  status: string;
-  tasks: string[];
-};
-
-const DEMO_ROUTINES: ChildRoutine[] = [
-  { title: 'School Week', status: 'Actief', tasks: ['Opstaan', 'Ontbijten', 'Tandenpoetsen', 'Naar school'] },
-  { title: 'Avond Routine', status: 'Actief', tasks: ['Avondeten', 'Douchen', 'Tandenpoetsen', 'Naar bed'] },
-  { title: 'Weekend Routine', status: 'Ingepland', tasks: ['Rustig opstarten', 'Spelletje spelen', 'Opruimen'] },
-];
 
 export default function ChildHomeScreen({
+  childId,
   monsterName,
   selectedAccessory,
   selectedMonsterColor,
@@ -45,9 +39,104 @@ export default function ChildHomeScreen({
   onOpenAchievements,
   onOpenFocus,
   onOpenMood,
+  onCoinsChange,
 }: ChildHomeScreenProps) {
   const displayName = monsterName.trim() || 'Je nieuwe monstertje';
-  const activeRoutines = DEMO_ROUTINES;
+  const [routineTasks, setRoutineTasks] = useState<ChildRoutineTask[]>([]);
+  const [loadingTasks, setLoadingTasks] = useState(true);
+  const [togglingTaskId, setTogglingTaskId] = useState<string | null>(null);
+
+  const routineGroups = useMemo(() => {
+    const groups = new Map<string, { routineId: string; title: string; tasks: ChildRoutineTask[] }>();
+    routineTasks.forEach((task) => {
+      const existing = groups.get(task.routine_id);
+      if (existing) {
+        existing.tasks.push(task);
+        return;
+      }
+      groups.set(task.routine_id, { routineId: task.routine_id, title: task.routine_title, tasks: [task] });
+    });
+    return Array.from(groups.values());
+  }, [routineTasks]);
+
+  const completedCount = useMemo(() => routineTasks.filter((task) => task.is_completed).length, [routineTasks]);
+  const progressPercent = useMemo(() => {
+    if (routineTasks.length === 0) return 0;
+    return Math.round((completedCount / routineTasks.length) * 100);
+  }, [completedCount, routineTasks.length]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const fetchTasks = async () => {
+      if (!childId) {
+        if (mounted) {
+          setRoutineTasks([]);
+          setLoadingTasks(false);
+        }
+        return;
+      }
+
+      setLoadingTasks(true);
+      const { data, error } = await getTodayRoutineTasksForChild(childId);
+
+      if (!mounted) return;
+      if (error) {
+        setRoutineTasks([]);
+      } else {
+        setRoutineTasks(data);
+      }
+      setLoadingTasks(false);
+    };
+
+    fetchTasks();
+
+    const channel = supabase
+      .channel('child-home-routine-live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'routines' }, fetchTasks)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'routine_tasks' }, fetchTasks)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_completions' }, fetchTasks)
+      .subscribe();
+
+    return () => {
+      mounted = false;
+      supabase.removeChannel(channel);
+    };
+  }, [childId]);
+
+  const handleToggleTask = async (task: ChildRoutineTask) => {
+    if (!childId || togglingTaskId || task.is_completed) return;
+
+    setTogglingTaskId(task.routine_task_id);
+
+    setRoutineTasks((prev) =>
+      prev.map((row) => (row.routine_task_id === task.routine_task_id ? { ...row, is_completed: true } : row)),
+    );
+
+    const { data, error } = await setTaskCompletionForChild({
+      childId,
+      routineTaskId: task.routine_task_id,
+      completed: true,
+    });
+
+    if (error) {
+      setRoutineTasks((prev) =>
+        prev.map((row) => (row.routine_task_id === task.routine_task_id ? { ...row, is_completed: task.is_completed } : row)),
+      );
+      Alert.alert('Opslaan mislukt', error.message || 'Kon taak niet bijwerken.');
+      setTogglingTaskId(null);
+      return;
+    }
+
+    const newBalance = data?.new_balance ?? coins;
+    onCoinsChange?.(newBalance);
+
+    if ((data?.bonus_points ?? 0) > 0) {
+      Alert.alert('Bonus verdiend!', `Alles klaar vandaag! Je kreeg +${data?.bonus_points ?? 0} bonus munten.`);
+    }
+
+    setTogglingTaskId(null);
+  };
 
   return (
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -78,15 +167,15 @@ export default function ChildHomeScreen({
 
         <View style={styles.progressRow}>
           <Text style={styles.progressLabel}>Dagelijkse voortgang</Text>
-          <Text style={styles.progressValue}>{tasksDone}/6</Text>
+          <Text style={styles.progressValue}>{completedCount}/{routineTasks.length}</Text>
         </View>
         <View style={styles.progressBar}>
-          <View style={[styles.progressFill, { width: tasksDone === 0 ? '0%' : '52%' }]} />
+          <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
         </View>
 
         <View style={styles.statsRow}>
           <MiniStat value={String(tasksDone)} label="Klaar" tone="mint" />
-          <MiniStat value="+0" label="Vandaag" tone="peach" />
+          <MiniStat value={`+${coins}`} label="Munten" tone="peach" />
           <MiniStat value={String(level)} label="Level" tone="blue" />
         </View>
       </View>
@@ -101,19 +190,22 @@ export default function ChildHomeScreen({
       <View style={styles.routinesCard}>
         <View style={styles.tasksHeader}>
           <Text style={styles.tasksTitle}>Actieve routines</Text>
-          <Text style={styles.tasksCount}>{activeRoutines.length} zichtbaar</Text>
+          <Text style={styles.tasksCount}>{routineGroups.length} zichtbaar</Text>
         </View>
 
-        {activeRoutines.map((routine) => (
-          <View key={routine.title} style={styles.routineRow}>
+        {loadingTasks ? <Text style={styles.emptyText}>Routines laden...</Text> : null}
+        {!loadingTasks && routineGroups.length === 0 ? <Text style={styles.emptyText}>Nog geen actieve routines.</Text> : null}
+
+        {routineGroups.map((routine) => (
+          <View key={routine.routineId} style={styles.routineRow}>
             <View style={styles.routineHeader}>
               <Text style={styles.routineTitle}>{routine.title}</Text>
-              <Text style={styles.routineStatus}>{routine.status}</Text>
+              <Text style={styles.routineStatus}>Actief</Text>
             </View>
             <View style={styles.routineTaskChips}>
               {routine.tasks.map((task) => (
-                <View key={task} style={styles.routineTaskChip}>
-                  <Text style={styles.routineTaskChipText}>{task}</Text>
+                <View key={task.routine_task_id} style={styles.routineTaskChip}>
+                  <Text style={styles.routineTaskChipText}>{task.task_title}</Text>
                 </View>
               ))}
             </View>
@@ -124,27 +216,26 @@ export default function ChildHomeScreen({
       <View style={styles.tasksCard}>
         <View style={styles.tasksHeader}>
           <Text style={styles.tasksTitle}>Taken Vandaag</Text>
-          <Text style={styles.tasksCount}>Alleen lezen</Text>
+          <Text style={styles.tasksCount}>Aantikken om af te vinken</Text>
         </View>
 
-        {[
-          { title: 'Tanden-poetsen', reward: '+5 munten', done: false },
-          { title: 'Bed opmaken', reward: '+5 munten', done: false },
-          { title: 'Ontbijten', reward: '+10 munten', done: false },
-          { title: 'Huiswerk maken', reward: '+20 munten', done: false },
-          { title: 'Speelgoed opruimen', reward: '+10 munten', done: false },
-          { title: 'Douchen', reward: '+10 munten', done: false },
-        ].map((task) => (
-          <View key={task.title} style={[styles.taskRow, task.done && styles.taskRowDone]}>
-            <View style={[styles.taskCheck, task.done && styles.taskCheckDone]}>
-              <Text style={styles.taskCheckIcon}>{task.done ? '✓' : '○'}</Text>
+        {routineTasks.map((task) => (
+          <Pressable
+            key={task.routine_task_id}
+            onPress={() => handleToggleTask(task)}
+            disabled={togglingTaskId === task.routine_task_id || task.is_completed}
+            style={[styles.taskRow, task.is_completed && styles.taskRowDone]}
+          >
+            <View style={[styles.taskCheck, task.is_completed && styles.taskCheckDone]}>
+              <Text style={styles.taskCheckIcon}>{task.is_completed ? '✓' : '○'}</Text>
             </View>
             <View style={styles.taskTextWrap}>
-              <Text style={styles.taskText}>{task.title}</Text>
-              <Text style={styles.taskReward}>{task.reward}</Text>
+              <Text style={styles.taskText}>{task.task_title}</Text>
+              <Text style={styles.taskReward}>{`+${task.reward_points} munten`}</Text>
             </View>
-          </View>
+          </Pressable>
         ))}
+        {!loadingTasks && routineTasks.length === 0 ? <Text style={styles.emptyText}>Geen taken beschikbaar vandaag.</Text> : null}
       </View>
 
       <StatusBar style="dark" />
@@ -271,4 +362,5 @@ const styles = StyleSheet.create({
   taskTextWrap: { flex: 1 },
   taskText: { fontSize: 16, fontWeight: '800', color: colors.textStrong },
   taskReward: { fontSize: 12, color: '#8A97A9', marginTop: 2, fontWeight: '700' },
+  emptyText: { fontSize: 13, color: '#8A97A9', fontWeight: '700' },
 });

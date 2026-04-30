@@ -1,33 +1,69 @@
+import { useMemo } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import colors from '../theme/colors';
 import { type AccessoryKey } from '../components/MonsterPreview';
 import { MonsterModel3D } from '../components/MonsterModel3D';
 
 type ChildRewardsShopScreenProps = {
+  childId?: string | null;
   monsterName: string;
   selectedAccessory?: AccessoryKey;
   selectedMonsterColor: string;
   coins: number;
+  ownedAccessories: AccessoryKey[];
   onBack: () => void;
   onSelectAccessory: (accessory: AccessoryKey) => void;
+  onBuyAccessory: (accessory: AccessoryKey, cost: number) => Promise<{ success: boolean; message: string; newBalance: number }>;
 };
 
-const items: Array<{ id: AccessoryKey; name: string; category: string; cost?: number; owned?: boolean; emoji: string }> = [
-  { id: 'sunglasses', name: 'Coole Zonnebril', category: 'Gezicht', cost: 0, owned: false, emoji: '🕶️' },
-  { id: 'hoodie', name: 'Feest Hoodie', category: 'Hoofd', cost: 0, owned: false, emoji: '🎩' },
-  { id: 'crown', name: 'Koning Kroon', category: 'Hoofd', cost: 0, owned: false, emoji: '👑' },
-  { id: 'wand', name: 'Magische Staf', category: 'Hand', cost: 0, owned: false, emoji: '✨' },
-  { id: 'bowtie', name: 'Bowtie', category: 'Lichaam', cost: 0, owned: false, emoji: '🎀' },
-  { id: 'flower', name: 'Bloemen Krans', category: 'Hoofd', cost: 0, owned: false, emoji: '🌸' },
-  { id: 'patch', name: 'Piraat Eye Patch', category: 'Gezicht', cost: 0, owned: false, emoji: '🏴‍☠️' },
+const items: Array<{ id: AccessoryKey; name: string; category: string; cost: number; emoji: string }> = [
+  { id: 'sunglasses', name: 'Coole Zonnebril', category: 'Gezicht', cost: 9, emoji: '🕶️' },
+  { id: 'hoodie', name: 'Feest Hoodie', category: 'Hoofd', cost: 12, emoji: '🎩' },
+  { id: 'crown', name: 'Koning Kroon', category: 'Hoofd', cost: 16, emoji: '👑' },
+  { id: 'wand', name: 'Magische Staf', category: 'Hand', cost: 14, emoji: '✨' },
+  { id: 'bowtie', name: 'Bowtie', category: 'Lichaam', cost: 8, emoji: '🎀' },
+  { id: 'flower', name: 'Bloemen Krans', category: 'Hoofd', cost: 11, emoji: '🌸' },
+  { id: 'patch', name: 'Piraat Eye Patch', category: 'Gezicht', cost: 10, emoji: '🏴‍☠️' },
 ];
 
 const categories = ['Alle', 'Hoofd', 'Gezicht', 'Lichaam'];
 
-export default function ChildRewardsShopScreen({ monsterName, selectedAccessory, selectedMonsterColor, coins, onBack, onSelectAccessory }: ChildRewardsShopScreenProps) {
+export default function ChildRewardsShopScreen({
+  childId,
+  monsterName,
+  selectedAccessory,
+  selectedMonsterColor,
+  coins,
+  ownedAccessories,
+  onBack,
+  onSelectAccessory,
+  onBuyAccessory,
+}: ChildRewardsShopScreenProps) {
   const selectedAccessoryName = selectedAccessory ? items.find((item) => item.id === selectedAccessory)?.name ?? 'je keuze' : 'je keuze';
+  const ownedSet = useMemo(() => new Set(ownedAccessories), [ownedAccessories]);
+
+  const handlePressItem = async (item: (typeof items)[number]) => {
+    if (!childId) {
+      Alert.alert('Niet beschikbaar', 'Geen kindprofiel gevonden.');
+      return;
+    }
+
+    if (ownedSet.has(item.id)) {
+      onSelectAccessory(item.id);
+      return;
+    }
+
+    const result = await onBuyAccessory(item.id, item.cost);
+    if (!result.success) {
+      Alert.alert('Aankoop mislukt', result.message);
+      return;
+    }
+
+    onSelectAccessory(item.id);
+    Alert.alert('Gekocht!', `${item.name} is nu van jou.`);
+  };
 
   return (
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -60,15 +96,28 @@ export default function ChildRewardsShopScreen({ monsterName, selectedAccessory,
       <View style={styles.grid}>
         {items.map((item) => {
           const selected = item.id === selectedAccessory;
+          const owned = ownedSet.has(item.id);
+          const canAfford = coins >= item.cost;
 
           return (
-            <Pressable key={item.id} onPress={() => onSelectAccessory(item.id)} style={({ pressed }) => [styles.itemCard, selected && styles.itemCardSelected, pressed && styles.itemCardPressed]}>
+            <Pressable
+              key={item.id}
+              onPress={() => {
+                void handlePressItem(item);
+              }}
+              style={({ pressed }) => [
+                styles.itemCard,
+                selected && styles.itemCardSelected,
+                !owned && !canAfford && styles.itemCardLocked,
+                pressed && styles.itemCardPressed,
+              ]}
+            >
               <Text style={styles.itemEmoji}>{item.emoji}</Text>
               <Text style={styles.itemName}>{item.name}</Text>
               <Text style={styles.itemCategory}>{item.category}</Text>
-              <View style={[styles.itemStatus, item.owned ? styles.itemStatusOwned : styles.itemStatusCost, selected && styles.itemStatusSelected]}>
-                <Text style={[styles.itemStatusText, item.owned && styles.itemStatusTextOwned]}>
-                  {selected ? 'Gekozen' : item.owned ? 'In bezit' : `🪙 ${item.cost ?? 0}`}
+              <View style={[styles.itemStatus, owned ? styles.itemStatusOwned : styles.itemStatusCost, selected && styles.itemStatusSelected]}>
+                <Text style={[styles.itemStatusText, owned && styles.itemStatusTextOwned]}>
+                  {selected ? 'Gekozen' : owned ? 'In bezit' : canAfford ? `Koop • 🪙 ${item.cost}` : `Te duur • 🪙 ${item.cost}`}
                 </Text>
               </View>
             </Pressable>
@@ -106,6 +155,7 @@ const styles = StyleSheet.create({
   categoryTextActive: { color: colors.white },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   itemCard: { width: '48.5%', backgroundColor: colors.white, borderRadius: 18, borderWidth: 1, borderColor: '#DDECF0', padding: 12, alignItems: 'center', gap: 6 },
+  itemCardLocked: { opacity: 0.7 },
   itemCardSelected: { borderColor: '#6C78E8', shadowColor: colors.shadow, shadowOpacity: 0.1, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 2 },
   itemCardPressed: { transform: [{ scale: 0.99 }] },
   itemEmoji: { fontSize: 28 },
