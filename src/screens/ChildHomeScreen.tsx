@@ -64,6 +64,10 @@ export default function ChildHomeScreen({
   }, [routineTasks]);
 
   const completedCount = useMemo(() => routineTasks.filter((task) => task.is_completed).length, [routineTasks]);
+  const isDayFullyCompleted = useMemo(
+    () => routineTasks.length > 0 && completedCount >= routineTasks.length,
+    [completedCount, routineTasks.length],
+  );
   const progressPercent = useMemo(() => {
     if (routineTasks.length === 0) return 0;
     return Math.round((completedCount / routineTasks.length) * 100);
@@ -229,14 +233,16 @@ export default function ChildHomeScreen({
       <View style={styles.tasksCard}>
         <View style={styles.tasksHeader}>
           <Text style={styles.tasksTitle}>Taken Vandaag</Text>
-          <Text style={styles.tasksCount}>Aantikken om af te vinken</Text>
+          <Text style={styles.tasksCount}>{isDayFullyCompleted ? 'Vandaag voltooid' : 'Aantikken om af te vinken'}</Text>
         </View>
+
+        {isDayFullyCompleted ? <Text style={styles.lockText}>Alles is klaar voor vandaag. Morgen kan je weer verder!</Text> : null}
 
         {routineTasks.map((task) => (
           <Pressable
             key={task.routine_task_id}
             onPress={() => handleToggleTask(task)}
-            disabled={togglingTaskId === task.routine_task_id}
+            disabled={togglingTaskId === task.routine_task_id || isDayFullyCompleted}
             style={[styles.taskRow, task.is_completed && styles.taskRowDone]}
           >
             <View style={[styles.taskCheck, task.is_completed && styles.taskCheckDone]}>
@@ -390,4 +396,5 @@ const styles = StyleSheet.create({
   taskText: { fontSize: 16, fontWeight: '800', color: colors.textStrong },
   taskReward: { fontSize: 12, color: '#8A97A9', marginTop: 2, fontWeight: '700' },
   emptyText: { fontSize: 13, color: '#8A97A9', fontWeight: '700' },
+  lockText: { fontSize: 12, color: '#5F68C9', fontWeight: '800', marginTop: -2 },
 });

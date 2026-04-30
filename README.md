@@ -33,7 +33,7 @@ npx expo start
     - Required keys:
        - `EXPO_PUBLIC_SUPABASE_URL`
        - `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
-2. Open Supabase SQL Editor and run [supabase/schema.sql](supabase/schema.sql).
+2. Open Supabase SQL Editor and run the files in [`supabase/sql/RUN_ORDER.md`](supabase/sql/RUN_ORDER.md).
 3. Make sure Email auth is enabled in Supabase Authentication.
 
 ### Security note
