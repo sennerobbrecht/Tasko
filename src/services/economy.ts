@@ -1,5 +1,6 @@
 import { type AccessoryKey } from '../components/MonsterPreview';
 import { supabase } from '../lib/supabase';
+import { enqueueOfflineMutation } from './offlineQueue';
 
 export async function getChildShopState(
   childId: string,
@@ -36,23 +37,49 @@ export async function buyAccessoryForChild({
   accessoryKey: AccessoryKey;
   cost: number;
 }): Promise<{ data: { success: boolean; message: string; new_balance: number } | null; error: Error | null }> {
-  const { data, error } = await supabase.rpc('buy_child_accessory', {
-    p_child_id: childId,
-    p_accessory_key: accessoryKey,
-    p_cost: cost,
-  });
+  try {
+    const { data, error } = await supabase.rpc('buy_child_accessory', {
+      p_child_id: childId,
+      p_accessory_key: accessoryKey,
+      p_cost: cost,
+    });
 
-  if (error) {
-    return { data: null, error };
+    if (error) {
+      const message = String(error.message ?? '').toLowerCase();
+      if (message.includes('network') || message.includes('netword') || message.includes('fetch') || message.includes('offline') || message.includes('timeout')) {
+        await enqueueOfflineMutation({
+          type: 'buy_accessory',
+          payload: { childId, accessoryKey, cost },
+        });
+        return {
+          data: { success: true, message: 'Offline opgeslagen, wordt gesynchroniseerd zodra je online bent.', new_balance: 0 },
+          error: null,
+        };
+      }
+      return { data: null, error };
+    }
+
+    const row = Array.isArray(data) ? data[0] : data;
+    return {
+      data: (row as { success: boolean; message: string; new_balance: number } | null) ?? {
+        success: false,
+        message: 'Onbekende fout',
+        new_balance: 0,
+      },
+      error: null,
+    };
+  } catch (error) {
+    const message = String((error as { message?: string } | null)?.message ?? error ?? '').toLowerCase();
+    if (message.includes('network') || message.includes('netword') || message.includes('fetch') || message.includes('offline') || message.includes('timeout')) {
+      await enqueueOfflineMutation({
+        type: 'buy_accessory',
+        payload: { childId, accessoryKey, cost },
+      });
+      return {
+        data: { success: true, message: 'Offline opgeslagen, wordt gesynchroniseerd zodra je online bent.', new_balance: 0 },
+        error: null,
+      };
+    }
+    return { data: null, error: error as Error };
   }
-
-  const row = Array.isArray(data) ? data[0] : data;
-  return {
-    data: (row as { success: boolean; message: string; new_balance: number } | null) ?? {
-      success: false,
-      message: 'Onbekende fout',
-      new_balance: 0,
-    },
-    error: null,
-  };
 }

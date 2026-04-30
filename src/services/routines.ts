@@ -1,5 +1,6 @@
 import { getCurrentFamily } from './families';
 import { supabase } from '../lib/supabase';
+import { enqueueOfflineMutation } from './offlineQueue';
 
 export type RoutineSummary = {
   id: string;
@@ -188,22 +189,44 @@ export async function setTaskCompletionForChild({
 }): Promise<{
   data: { awarded_points: number; bonus_points: number; total_awarded_points: number; new_balance: number; current_streak_days: number } | null;
   error: Error | null;
+  queued?: boolean;
 }> {
-  const { data, error } = await supabase.rpc('set_task_completion_for_child', {
-    p_child_id: childId,
-    p_routine_task_id: routineTaskId,
-    p_completed: completed,
-  });
+  try {
+    const { data, error } = await supabase.rpc('set_task_completion_for_child', {
+      p_child_id: childId,
+      p_routine_task_id: routineTaskId,
+      p_completed: completed,
+    });
 
-  if (error) {
-    return { data: null, error };
+    if (error) {
+      const message = String(error.message ?? '').toLowerCase();
+      if (message.includes('network') || message.includes('netword') || message.includes('fetch') || message.includes('offline') || message.includes('timeout')) {
+        await enqueueOfflineMutation({
+          type: 'set_task_completion',
+          payload: { childId, routineTaskId, completed },
+        });
+        return { data: null, error: null, queued: true };
+      }
+      return { data: null, error };
+    }
+
+    const firstRow = Array.isArray(data) ? data[0] : data;
+    return {
+      data:
+        (firstRow as { awarded_points: number; bonus_points: number; total_awarded_points: number; new_balance: number; current_streak_days: number } | null) ??
+        { awarded_points: 0, bonus_points: 0, total_awarded_points: 0, new_balance: 0, current_streak_days: 0 },
+      error: null,
+      queued: false,
+    };
+  } catch (error) {
+    const message = String((error as { message?: string } | null)?.message ?? error ?? '').toLowerCase();
+    if (message.includes('network') || message.includes('netword') || message.includes('fetch') || message.includes('offline') || message.includes('timeout')) {
+      await enqueueOfflineMutation({
+        type: 'set_task_completion',
+        payload: { childId, routineTaskId, completed },
+      });
+      return { data: null, error: null, queued: true };
+    }
+    return { data: null, error: error as Error, queued: false };
   }
-
-  const firstRow = Array.isArray(data) ? data[0] : data;
-  return {
-    data:
-      (firstRow as { awarded_points: number; bonus_points: number; total_awarded_points: number; new_balance: number; current_streak_days: number } | null) ??
-      { awarded_points: 0, bonus_points: 0, total_awarded_points: 0, new_balance: 0, current_streak_days: 0 },
-    error: null,
-  };
 }

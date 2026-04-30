@@ -24,6 +24,7 @@ type ChildHomeScreenProps = {
   onOpenMood: () => void;
   onCoinsChange?: (nextCoins: number) => void;
   onStreakChange?: (nextStreak: number) => void;
+  pendingSyncCount?: number;
 };
 
 export default function ChildHomeScreen({
@@ -42,6 +43,7 @@ export default function ChildHomeScreen({
   onOpenMood,
   onCoinsChange,
   onStreakChange,
+  pendingSyncCount = 0,
 }: ChildHomeScreenProps) {
   const displayName = monsterName.trim() || 'Je nieuwe monstertje';
   const [routineTasks, setRoutineTasks] = useState<ChildRoutineTask[]>([]);
@@ -156,6 +158,12 @@ export default function ChildHomeScreen({
           <Text style={styles.pointsLabel}>munten</Text>
         </View>
       </View>
+
+      {pendingSyncCount > 0 ? (
+        <View style={styles.syncBanner}>
+          <Text style={styles.syncBannerText}>Offline modus: {pendingSyncCount} actie(s) wachten op internet</Text>
+        </View>
+      ) : null}
 
       <View style={styles.heroCard}>
         <View style={styles.heroHeader}>
@@ -309,6 +317,20 @@ const styles = StyleSheet.create({
   pointsEmoji: { fontSize: 16 },
   pointsText: { fontSize: 18, fontWeight: '900', color: colors.textStrong },
   pointsLabel: { fontSize: 14, color: '#8A97A9', fontWeight: '700' },
+  syncBanner: {
+    backgroundColor: '#FFF6E9',
+    borderColor: '#F7D9A8',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+  },
+  syncBannerText: {
+    color: '#9A6A16',
+    fontSize: 12,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
   heroCard: {
     backgroundColor: colors.white,
     borderRadius: 26,

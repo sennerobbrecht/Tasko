@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import { Alert, LogBox } from 'react-native';
+import { Alert, AppState, LogBox } from 'react-native';
 import ParentAccountScreen from './src/screens/ParentAccountScreen';
 import WelcomeScreen from './src/screens/WelcomeScreen';
 import LoginScreen from './src/screens/LoginScreen';
@@ -22,6 +22,7 @@ import { getSessionUser, signInParent, signOutCurrentUser, signUpParent } from '
 import { createChildFromInvite, ensureFamilyForCurrentUser, loginChildWithCodeAndName } from './src/services/families';
 import { MONSTER_COLORS, type AccessoryKey } from './src/components/MonsterPreview';
 import { buyAccessoryForChild, getChildShopState } from './src/services/economy';
+import { flushOfflineQueue, getOfflineQueueCount } from './src/services/offlineQueue';
 
 type User = {
   id: string;
@@ -68,6 +69,7 @@ export default function App() {
 	const [focusEndAtMs, setFocusEndAtMs] = useState<number | null>(null);
 	const [focusIsRunning, setFocusIsRunning] = useState(false);
 	const [parentDashboardTab, setParentDashboardTab] = useState<'home' | 'insights' | 'planner' | 'profile'>('home');
+	const [pendingSyncCount, setPendingSyncCount] = useState(0);
 
 	useEffect(() => {
 		LogBox.ignoreLogs([
@@ -173,6 +175,31 @@ export default function App() {
 		};
 	}, []);
 
+	useEffect(() => {
+		const refreshPendingCount = async () => {
+			const count = await getOfflineQueueCount();
+			setPendingSyncCount(count);
+		};
+
+		flushOfflineQueue().then(refreshPendingCount);
+		const interval = setInterval(() => {
+			flushOfflineQueue().then(refreshPendingCount);
+		}, 12000);
+
+		const subscription = AppState.addEventListener('change', (state) => {
+			if (state === 'active') {
+				flushOfflineQueue().then(refreshPendingCount);
+			}
+		});
+
+		refreshPendingCount();
+
+		return () => {
+			clearInterval(interval);
+			subscription.remove();
+		};
+	}, []);
+
 	if (!isAuthBootstrapDone) {
 		return null;
 	}
@@ -195,6 +222,7 @@ export default function App() {
 				onOpenMood={() => setScreen('childMood')}
 				onCoinsChange={setCoins}
 				onStreakChange={setStreakDays}
+				pendingSyncCount={pendingSyncCount}
 			/>
 		);
 	}
@@ -226,7 +254,12 @@ export default function App() {
 					}
 
 					if (data.success) {
-						setCoins(data.new_balance);
+						const isOfflineQueued = data.message.toLowerCase().includes('offline');
+						if (isOfflineQueued) {
+							setCoins((prev) => Math.max(0, prev - cost));
+						} else {
+							setCoins(data.new_balance);
+						}
 						setOwnedAccessories((prev) => (prev.includes(accessory) ? prev : [...prev, accessory]));
 					}
 
