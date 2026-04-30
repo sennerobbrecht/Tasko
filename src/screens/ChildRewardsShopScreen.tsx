@@ -2,7 +2,8 @@ import { StatusBar } from 'expo-status-bar';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import colors from '../theme/colors';
-import { MonsterPreview, type AccessoryKey } from '../components/MonsterPreview';
+import { type AccessoryKey } from '../components/MonsterPreview';
+import { MonsterModel3D } from '../components/MonsterModel3D';
 
 type ChildRewardsShopScreenProps = {
   monsterName: string;
@@ -44,7 +45,7 @@ export default function ChildRewardsShopScreen({ monsterName, selectedAccessory,
       <View style={styles.previewCard}>
         <Text style={styles.previewText}>Zo ziet {monsterName || 'je monstertje'} eruit met {selectedAccessoryName}</Text>
         <View style={styles.previewBox}>
-          <MonsterPreview accessory={selectedAccessory} color={selectedMonsterColor} size={180} />
+          <MonsterModel3D color={selectedMonsterColor} size={180} zoom={1.95} autoRotate={false} initialYRotation={0} />
         </View>
       </View>
 
