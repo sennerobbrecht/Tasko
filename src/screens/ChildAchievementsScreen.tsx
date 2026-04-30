@@ -1,24 +1,116 @@
+import { useEffect, useMemo, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import colors from '../theme/colors';
+import { supabase } from '../lib/supabase';
 
 type ChildAchievementsScreenProps = {
+  childId?: string | null;
+  coins: number;
+  level: number;
   onBack: () => void;
 };
 
-const achievements = [
-  { title: 'Vroege Vogel', subtitle: '7 dagen voor 8:00 wakker', done: false },
-  { title: 'Super Poetsen', subtitle: '30 dagen tanden gepoetst', done: false },
-  { title: 'Opruim Held', subtitle: '50 keer kamer opgeruimd', done: false },
-  { title: 'Huiswerk Master', subtitle: '100 huiswerk sessies', done: false },
-  { title: 'Streak Kampioen', subtitle: '14 dagen streak', done: false },
-  { title: 'Muntjes Meester', subtitle: '500 munten verzameld', done: false },
-  { title: 'Blijdschap Pro', subtitle: '10 dagen blij mood', done: false },
-  { title: 'Focus Expert', subtitle: '20 focus sessies', done: false },
-];
+type Achievement = { title: string; subtitle: string; done: boolean };
 
-export default function ChildAchievementsScreen({ onBack }: ChildAchievementsScreenProps) {
+export default function ChildAchievementsScreen({ childId, coins, level, onBack }: ChildAchievementsScreenProps) {
+  const [completionsByTitle, setCompletionsByTitle] = useState<Record<string, number>>({});
+  const [totalCompletions, setTotalCompletions] = useState(0);
+  const [streakDays, setStreakDays] = useState(0);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadTaskStats = async () => {
+      if (!childId) {
+        if (mounted) {
+          setCompletionsByTitle({});
+          setTotalCompletions(0);
+          setStreakDays(0);
+        }
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('task_completions')
+        .select('completed_on,routine_tasks(title)')
+        .eq('child_id', childId);
+
+      if (!mounted || error || !data) {
+        return;
+      }
+
+      const counts: Record<string, number> = {};
+      const completedDates = new Set<string>();
+
+      data.forEach((row: any) => {
+        const title = String(row.routine_tasks?.title ?? '').toLowerCase().trim();
+        if (title) {
+          counts[title] = (counts[title] ?? 0) + 1;
+        }
+
+        const dayKey = String(row.completed_on ?? '');
+        if (dayKey) {
+          completedDates.add(dayKey);
+        }
+      });
+
+      const sortedDates = Array.from(completedDates).sort((a, b) => b.localeCompare(a));
+      let streak = 0;
+      let cursor = new Date();
+      cursor.setHours(0, 0, 0, 0);
+
+      while (true) {
+        const key = cursor.toISOString().slice(0, 10);
+        if (!sortedDates.includes(key)) break;
+        streak += 1;
+        cursor.setDate(cursor.getDate() - 1);
+      }
+
+      setCompletionsByTitle(counts);
+      setTotalCompletions(data.length);
+      setStreakDays(streak);
+    };
+
+    loadTaskStats();
+
+    const channel = supabase
+      .channel('child-achievements-live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_completions' }, loadTaskStats)
+      .subscribe();
+
+    return () => {
+      mounted = false;
+      supabase.removeChannel(channel);
+    };
+  }, [childId]);
+
+  const achievements = useMemo<Achievement[]>(() => {
+    const countMatching = (matcher: (title: string) => boolean) =>
+      Object.entries(completionsByTitle).reduce((sum, [title, value]) => (matcher(title) ? sum + value : sum), 0);
+
+    const brushingCount = countMatching((title) => title.includes('tanden'));
+    const homeworkCount = countMatching((title) => title.includes('huiswerk'));
+    const tidyCount = countMatching((title) => title.includes('opruim'));
+
+    return [
+      { title: 'Eerste Vinkje', subtitle: 'Voltooi je eerste taak', done: totalCompletions >= 1 },
+      { title: 'Taken Starter', subtitle: 'Voltooi 10 taken', done: totalCompletions >= 10 },
+      { title: 'Taken Pro', subtitle: 'Voltooi 50 taken', done: totalCompletions >= 50 },
+      { title: 'Poets Kampioen', subtitle: 'Tandenpoetsen 10 keer afgevinkt', done: brushingCount >= 10 },
+      { title: 'Huiswerk Held', subtitle: 'Huiswerk 10 keer afgevinkt', done: homeworkCount >= 10 },
+      { title: 'Opruim Held', subtitle: 'Opruimtaken 10 keer afgevinkt', done: tidyCount >= 10 },
+      { title: 'Streak Ster', subtitle: 'Houd een streak van 7 dagen', done: streakDays >= 7 },
+      { title: 'Muntjes Meester', subtitle: 'Verzamel 200 munten', done: coins >= 200 },
+      { title: 'Level 3', subtitle: 'Bereik level 3', done: level >= 3 },
+      { title: 'Level 5', subtitle: 'Bereik level 5', done: level >= 5 },
+    ];
+  }, [coins, completionsByTitle, level, streakDays, totalCompletions]);
+
+  const unlockedCount = achievements.filter((item) => item.done).length;
+  const progressWidth = `${Math.round((unlockedCount / achievements.length) * 100)}%`;
+
   return (
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <View style={styles.topRow}>
@@ -33,12 +125,12 @@ export default function ChildAchievementsScreen({ onBack }: ChildAchievementsScr
         <View style={styles.heroTop}>
           <Text style={styles.heroIcon}>🏆</Text>
           <View>
-            <Text style={styles.heroCount}>0 van 8</Text>
+            <Text style={styles.heroCount}>{unlockedCount} van {achievements.length}</Text>
             <Text style={styles.heroLabel}>Badges ontgrendeld</Text>
           </View>
         </View>
         <View style={styles.progressBar}>
-          <View style={[styles.progressFill, { width: '0%' }]} />
+          <View style={[styles.progressFill, { width: progressWidth }]} />
         </View>
       </View>
 

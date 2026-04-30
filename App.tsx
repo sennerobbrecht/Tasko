@@ -59,7 +59,7 @@ export default function App() {
 	const [ownedAccessories, setOwnedAccessories] = useState<AccessoryKey[]>([]);
 	const [selectedMonsterColor, setSelectedMonsterColor] = useState<string>(MONSTER_COLORS[0]);
 	const [coins, setCoins] = useState(0);
-	const [level] = useState(0);
+	const [level, setLevel] = useState(1);
 	const [streakDays] = useState(0);
 	const [tasksDone] = useState(0);
 	const [badgesUnlocked] = useState(0);
@@ -133,6 +133,10 @@ export default function App() {
 			mounted = false;
 		};
 	}, [childProfileId]);
+
+	useEffect(() => {
+		setLevel(Math.max(1, Math.floor(coins / 100) + 1));
+	}, [coins]);
 
 	useEffect(() => {
 		let isMounted = true;
@@ -231,7 +235,7 @@ export default function App() {
 	}
 
 	if (screen === 'childAchievements') {
-		return <ChildAchievementsScreen onBack={() => setScreen('childHome')} />;
+		return <ChildAchievementsScreen childId={childProfileId} coins={coins} level={level} onBack={() => setScreen('childHome')} />;
 	}
 
 	if (screen === 'childFocusTime') {
