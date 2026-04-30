@@ -22,6 +22,7 @@ type ParentDashboardScreenProps = {
   currentUser?: User | null;
   onLogout?: () => void;
   onOpenPremium?: () => void;
+  initialTab?: ParentTab;
 };
 
 type ParentTab = 'home' | 'insights' | 'planner' | 'profile';
@@ -49,8 +50,12 @@ const TEMPLATES = [
   { id: 'verjaardag', title: 'Verjaardagsdag', subtitle: 'Speciale routine voor feestjes' },
 ];
 
-export default function ParentDashboardScreen({ currentUser, onLogout, onOpenPremium }: ParentDashboardScreenProps) {
-  const [activeTab, setActiveTab] = useState<ParentTab>('home');
+export default function ParentDashboardScreen({ currentUser, onLogout, onOpenPremium, initialTab = 'home' }: ParentDashboardScreenProps) {
+  const [activeTab, setActiveTab] = useState<ParentTab>(initialTab);
+
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
   const [showReadOnlyModal, setShowReadOnlyModal] = useState(false);
   const [showInviteScreen, setShowInviteScreen] = useState(false);
   const [showFamilyTeamSettings, setShowFamilyTeamSettings] = useState(false);

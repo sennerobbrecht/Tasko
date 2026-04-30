@@ -65,6 +65,7 @@ export default function App() {
 	const [focusRemainingSeconds, setFocusRemainingSeconds] = useState(0);
 	const [focusEndAtMs, setFocusEndAtMs] = useState<number | null>(null);
 	const [focusIsRunning, setFocusIsRunning] = useState(false);
+	const [parentDashboardTab, setParentDashboardTab] = useState<'home' | 'insights' | 'planner' | 'profile'>('home');
 
 	useEffect(() => {
 		LogBox.ignoreLogs([
@@ -237,7 +238,14 @@ export default function App() {
 	}
 
 	if (screen === 'premium') {
-		return <PremiumScreen onBack={() => setScreen('parentDashboard')} />;
+		return (
+			<PremiumScreen
+				onBack={() => {
+					setParentDashboardTab('profile');
+					setScreen('parentDashboard');
+				}}
+			/>
+		);
 	}
 
 	if (screen === 'login') {
@@ -263,6 +271,7 @@ export default function App() {
 					}
 
 					await ensureFamilyForCurrentUser();
+					setParentDashboardTab('home');
 					setScreen('parentDashboard');
 					return null;
 				}}
@@ -417,6 +426,7 @@ export default function App() {
 						return `Kon gezin niet aanmaken: ${familyError.message}`;
 					}
 
+					setParentDashboardTab('home');
 					setScreen('parentDashboard');
 					return null;
 				}}
@@ -427,10 +437,15 @@ export default function App() {
 	if (screen === 'parentDashboard') {
 		return <ParentDashboardScreen 
 			currentUser={currentUser}
-			onOpenPremium={() => setScreen('premium')}
+			initialTab={parentDashboardTab}
+			onOpenPremium={() => {
+				setParentDashboardTab('profile');
+				setScreen('premium');
+			}}
 			onLogout={async () => {
 				await signOutCurrentUser();
 				setCurrentUser(null);
+				setParentDashboardTab('home');
 				setScreen('welcome');
 			}}
 		/>;
