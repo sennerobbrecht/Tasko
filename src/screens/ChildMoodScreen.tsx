@@ -138,7 +138,7 @@ export default function ChildMoodScreen({ childId, monsterName, selectedMonsterC
       </View>
 
       <View style={styles.previewCard}>
-        <MonsterModel3D color={selectedMonsterColor} size={160} zoom={1.2} />
+        <MonsterModel3D color={selectedMonsterColor} size={160} zoom={1.2} autoRotate={false} allowManualRotate={false} initialYRotation={0} />
         <Text style={styles.previewText}>Vertel {monsterName || 'je monstertje'} hoe je je voelt...</Text>
       </View>
 

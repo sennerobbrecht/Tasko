@@ -164,7 +164,7 @@ export default function ChildHomeScreen({
         </View>
         <Text style={styles.heroSubtitle}>Level {level} • Nieuwe start</Text>
         <View style={styles.previewBox}>
-          <MonsterModel3D color={selectedMonsterColor} size={220} zoom={1.5} />
+          <MonsterModel3D color={selectedMonsterColor} size={180} zoom={1.95} autoRotate={false} allowManualRotate={false} initialYRotation={0} accessory={selectedAccessory} />
         </View>
 
         <View style={styles.progressRow}>

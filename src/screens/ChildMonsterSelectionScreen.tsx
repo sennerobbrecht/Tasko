@@ -23,7 +23,7 @@ export default function ChildMonsterSelectionScreen({ onBack, onContinue }: Chil
         <Text style={styles.title}>Jouw monstertje</Text>
 
         <View style={styles.monsterFrame}>
-          <MonsterModel3D color="#D6F7FF" size={230} />
+          <MonsterModel3D color="#D6F7FF" size={230} autoRotate={false} allowManualRotate={false} initialYRotation={0} />
         </View>
 
         <Text style={styles.sectionTitle}>Geef jouw monster een naam</Text>

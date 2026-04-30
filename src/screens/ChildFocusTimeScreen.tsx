@@ -103,7 +103,7 @@ export default function ChildFocusTimeScreen({
 
         <View style={styles.ringWrap}>
           <View style={styles.ring}>
-            <MonsterModel3D color={selectedMonsterColor} size={150} zoom={1.2} />
+            <MonsterModel3D color={selectedMonsterColor} size={150} zoom={1.2} autoRotate={false} allowManualRotate={false} initialYRotation={0} />
           </View>
         </View>
 

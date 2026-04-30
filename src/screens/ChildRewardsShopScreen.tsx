@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
@@ -26,9 +26,23 @@ const items: Array<{ id: AccessoryKey; name: string; category: string; cost: num
   { id: 'bowtie', name: 'Bowtie', category: 'Lichaam', cost: 55, emoji: '🎀' },
   { id: 'flower', name: 'Bloemen Krans', category: 'Hoofd', cost: 75, emoji: '🌸' },
   { id: 'patch', name: 'Piraat Eye Patch', category: 'Gezicht', cost: 70, emoji: '🏴‍☠️' },
+  { id: 'neon_glasses', name: 'Neon Glasses', category: 'Gezicht', cost: 95, emoji: '🥽' },
+  { id: 'chef_hat', name: 'Chef Muts', category: 'Hoofd', cost: 90, emoji: '👨‍🍳' },
+  { id: 'space_helmet', name: 'Space Helm', category: 'Hoofd', cost: 165, emoji: '👨‍🚀' },
+  { id: 'laser_blade', name: 'Laser Blade', category: 'Hand', cost: 185, emoji: '🗡️' },
+  { id: 'super_cape', name: 'Super Cape', category: 'Lichaam', cost: 180, emoji: '🦸' },
+  { id: 'disco_crown', name: 'Disco Kroon', category: 'Hoofd', cost: 140, emoji: '🪩' },
+  { id: 'cyber_visor', name: 'Cyber Vizier', category: 'Gezicht', cost: 145, emoji: '🤖' },
+  { id: 'heart_glasses', name: 'Hart Bril', category: 'Gezicht', cost: 110, emoji: '💖' },
+  { id: 'ice_hat', name: 'IJs Muts', category: 'Hoofd', cost: 125, emoji: '🧊' },
+  { id: 'dragon_crown', name: 'Draken Kroon', category: 'Hoofd', cost: 220, emoji: '🐉' },
+  { id: 'golden_scepter', name: 'Gouden Scepter', category: 'Hand', cost: 260, emoji: '🔱' },
+  { id: 'galaxy_suit', name: 'Galaxy Suit', category: 'Lichaam', cost: 240, emoji: '🌌' },
+  { id: 'leaf_wreath', name: 'Blad Krans', category: 'Hoofd', cost: 98, emoji: '🍃' },
+  { id: 'star_patch', name: 'Ster Patch', category: 'Gezicht', cost: 102, emoji: '⭐' },
 ];
 
-const categories = ['Alle', 'Hoofd', 'Gezicht', 'Lichaam'];
+const categories = ['Alle', 'Hoofd', 'Gezicht', 'Lichaam', 'Hand'] as const;
 
 export default function ChildRewardsShopScreen({
   childId,
@@ -41,8 +55,15 @@ export default function ChildRewardsShopScreen({
   onSelectAccessory,
   onBuyAccessory,
 }: ChildRewardsShopScreenProps) {
+  const [selectedCategory, setSelectedCategory] = useState<(typeof categories)[number]>('Alle');
   const selectedAccessoryName = selectedAccessory ? items.find((item) => item.id === selectedAccessory)?.name ?? 'je keuze' : 'je keuze';
   const ownedSet = useMemo(() => new Set(ownedAccessories), [ownedAccessories]);
+  const visibleItems = useMemo(() => {
+    if (selectedCategory === 'Alle') {
+      return items;
+    }
+    return items.filter((item) => item.category === selectedCategory);
+  }, [selectedCategory]);
 
   const handlePressItem = async (item: (typeof items)[number]) => {
     if (!childId) {
@@ -66,7 +87,8 @@ export default function ChildRewardsShopScreen({
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <View style={styles.screen}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <View style={styles.topRow}>
         <Pressable onPress={onBack} style={styles.backButton}>
           <Text style={styles.backArrow}>←</Text>
@@ -81,20 +103,24 @@ export default function ChildRewardsShopScreen({
       <View style={styles.previewCard}>
         <Text style={styles.previewText}>Zo ziet {monsterName || 'je monstertje'} eruit met {selectedAccessoryName}</Text>
         <View style={styles.previewBox}>
-          <MonsterModel3D color={selectedMonsterColor} size={180} zoom={1.95} autoRotate={false} initialYRotation={0} />
+          <MonsterModel3D color={selectedMonsterColor} size={180} zoom={1.95} autoRotate={false} allowManualRotate={false} initialYRotation={0} accessory={selectedAccessory} />
         </View>
       </View>
 
       <View style={styles.categoryRow}>
-        {categories.map((category, index) => (
-          <View key={category} style={[styles.categoryPill, index === 0 && styles.categoryPillActive]}>
-            <Text style={[styles.categoryText, index === 0 && styles.categoryTextActive]}>{category}</Text>
-          </View>
+        {categories.map((category) => (
+          <Pressable
+            key={category}
+            onPress={() => setSelectedCategory(category)}
+            style={[styles.categoryPill, selectedCategory === category && styles.categoryPillActive]}
+          >
+            <Text style={[styles.categoryText, selectedCategory === category && styles.categoryTextActive]}>{category}</Text>
+          </Pressable>
         ))}
       </View>
 
       <View style={styles.grid}>
-        {items.map((item) => {
+        {visibleItems.map((item) => {
           const selected = item.id === selectedAccessory;
           const owned = ownedSet.has(item.id);
           const canAfford = coins >= item.cost;
@@ -125,16 +151,22 @@ export default function ChildRewardsShopScreen({
         })}
       </View>
 
-      <StatusBar style="dark" />
-    </ScrollView>
+        <StatusBar style="dark" />
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
   content: {
+    flexGrow: 1,
     paddingTop: 40,
     paddingHorizontal: 16,
-    paddingBottom: 28,
+    paddingBottom: 48,
     backgroundColor: colors.background,
     gap: 14,
   },

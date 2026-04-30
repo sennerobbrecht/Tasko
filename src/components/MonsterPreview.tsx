@@ -2,7 +2,28 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import colors from '../theme/colors';
 
-export type AccessoryKey = 'sunglasses' | 'hoodie' | 'crown' | 'bowtie' | 'flower' | 'wand' | 'patch';
+export type AccessoryKey =
+  | 'sunglasses'
+  | 'hoodie'
+  | 'crown'
+  | 'bowtie'
+  | 'flower'
+  | 'wand'
+  | 'patch'
+  | 'neon_glasses'
+  | 'chef_hat'
+  | 'space_helmet'
+  | 'laser_blade'
+  | 'super_cape'
+  | 'disco_crown'
+  | 'cyber_visor'
+  | 'heart_glasses'
+  | 'ice_hat'
+  | 'dragon_crown'
+  | 'golden_scepter'
+  | 'galaxy_suit'
+  | 'leaf_wreath'
+  | 'star_patch';
 
 type MonsterPreviewProps = {
   accessory?: AccessoryKey;
@@ -19,6 +40,20 @@ const ACCESSORY_LABELS: Record<AccessoryKey, string> = {
   flower: '🌸',
   wand: '✨',
   patch: '🏴‍☠️',
+  neon_glasses: '🥽',
+  chef_hat: '👨‍🍳',
+  space_helmet: '👨‍🚀',
+  laser_blade: '🗡️',
+  super_cape: '🦸',
+  disco_crown: '🪩',
+  cyber_visor: '🤖',
+  heart_glasses: '💖',
+  ice_hat: '🧊',
+  dragon_crown: '🐉',
+  golden_scepter: '🔱',
+  galaxy_suit: '🌌',
+  leaf_wreath: '🍃',
+  star_patch: '⭐',
 };
 
 export const MONSTER_COLORS = ['#D6F7FF', '#FFD9EC', '#DDF7D8', '#FFE9C9', '#E2DDFF'] as const;

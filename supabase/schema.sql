@@ -96,7 +96,7 @@ create table if not exists public.team_invites (
 create table if not exists public.child_accessories (
   id uuid primary key default gen_random_uuid(),
   child_id uuid not null references public.child_profiles(id) on delete cascade,
-  accessory_key text not null check (accessory_key in ('sunglasses','hoodie','crown','bowtie','flower','wand','patch')),
+  accessory_key text not null check (accessory_key in ('sunglasses','hoodie','crown','bowtie','flower','wand','patch','neon_glasses','chef_hat','space_helmet','laser_blade','super_cape','disco_crown','cyber_visor','heart_glasses','ice_hat','dragon_crown','golden_scepter','galaxy_suit','leaf_wreath','star_patch')),
   purchased_at timestamptz not null default now(),
   unique (child_id, accessory_key)
 );
@@ -786,7 +786,7 @@ as $$
 declare
   v_balance int;
 begin
-  if p_accessory_key not in ('sunglasses','hoodie','crown','bowtie','flower','wand','patch') then
+  if p_accessory_key not in ('sunglasses','hoodie','crown','bowtie','flower','wand','patch','neon_glasses','chef_hat','space_helmet','laser_blade','super_cape','disco_crown','cyber_visor','heart_glasses','ice_hat','dragon_crown','golden_scepter','galaxy_suit','leaf_wreath','star_patch') then
     return query select false, 'Ongeldig accessoire', 0;
     return;
   end if;
