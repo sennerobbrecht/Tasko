@@ -5,6 +5,8 @@ import { useEffect, useMemo, useState } from 'react';
 import colors from '../theme/colors';
 import { MonsterPreview, type AccessoryKey } from '../components/MonsterPreview';
 import { getTodayMoodForChild, saveMoodForToday, type MoodKey } from '../services/moods';
+import { MoodPickerGrid } from '../components/mood/MoodPickerGrid';
+import { MoodWeekCard } from '../components/mood/MoodWeekCard';
 
 type ChildMoodScreenProps = {
   childId?: string | null;
@@ -100,40 +102,13 @@ export default function ChildMoodScreen({ childId, monsterName, selectedAccessor
 
       <View style={styles.sectionCard}>
         <Text style={styles.sectionTitle}>Kies je gevoel</Text>
-        <View style={styles.moodGrid}>
-          {moods.map((mood) => (
-            <Pressable
-              key={mood.key}
-              onPress={() => handleSelectMood(mood.key)}
-              disabled={!childId || saving}
-              style={[styles.moodCard, selectedMood === mood.key && styles.moodCardActive]}
-            >
-              <Text style={styles.moodEmoji}>{mood.emoji}</Text>
-              <Text style={styles.moodLabel}>{mood.label}</Text>
-            </Pressable>
-          ))}
-        </View>
+        <MoodPickerGrid moods={moods} selectedMood={selectedMood} disabled={!childId || saving} onSelect={handleSelectMood} />
         <Text style={styles.helperText}>
           Je kan vandaag 1 gevoel kiezen en aanpassen zolang de dag bezig is.
         </Text>
       </View>
 
-      <View style={styles.sectionCard}>
-        <View style={styles.weekHeader}>
-          <Text style={styles.sectionTitle}>Deze Week</Text>
-          <View style={styles.weekBadge}>
-            <Text style={styles.weekBadgeText}>{selectedMood ? 'Vandaag ingevuld' : 'Nog niet ingevuld'}</Text>
-          </View>
-        </View>
-        <View style={styles.weekGrid}>
-          {dayCells.map((entry) => (
-            <View key={entry.day} style={[styles.weekCard, entry.active && styles.weekCardActive]}>
-              <Text style={styles.weekDay}>{entry.day}</Text>
-              <Text style={styles.weekMood}>{entry.mood}</Text>
-            </View>
-          ))}
-        </View>
-      </View>
+      <MoodWeekCard dayCells={dayCells} hasMoodToday={Boolean(selectedMood)} />
 
       <StatusBar style="dark" />
     </ScrollView>
@@ -151,18 +126,5 @@ const styles = StyleSheet.create({
   previewText: { color: '#8A97A9', fontSize: 13, fontWeight: '700' },
   sectionCard: { backgroundColor: colors.white, borderRadius: 24, padding: 14, borderWidth: 1, borderColor: '#DDECF0', gap: 12 },
   sectionTitle: { color: colors.textStrong, fontSize: 18, fontWeight: '900' },
-  moodGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  moodCard: { width: '31.5%', minHeight: 88, borderRadius: 18, borderWidth: 1, borderColor: '#DDECF0', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FBFDFF' },
-  moodCardActive: { borderColor: '#6C78E8', backgroundColor: '#F0F3FF' },
-  moodEmoji: { fontSize: 28 },
-  moodLabel: { marginTop: 6, fontSize: 13, color: colors.textStrong, fontWeight: '700' },
   helperText: { color: '#8A97A9', fontSize: 12, fontWeight: '700' },
-  weekHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  weekBadge: { backgroundColor: '#EFFFF5', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 6 },
-  weekBadgeText: { color: '#13B37E', fontWeight: '900', fontSize: 12 },
-  weekGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  weekCard: { width: '31.5%', minHeight: 80, borderRadius: 16, borderWidth: 1, borderColor: '#DDECF0', backgroundColor: '#FBFDFF', alignItems: 'center', justifyContent: 'center' },
-  weekCardActive: { backgroundColor: '#FFF4ED' },
-  weekDay: { color: '#8A97A9', fontWeight: '800' },
-  weekMood: { marginTop: 6, fontSize: 20 },
 });
