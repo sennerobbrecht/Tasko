@@ -19,13 +19,13 @@ type ChildRewardsShopScreenProps = {
 };
 
 const items: Array<{ id: AccessoryKey; name: string; category: string; cost: number; emoji: string }> = [
-  { id: 'sunglasses', name: 'Coole Zonnebril', category: 'Gezicht', cost: 9, emoji: '🕶️' },
-  { id: 'hoodie', name: 'Feest Hoodie', category: 'Hoofd', cost: 12, emoji: '🎩' },
-  { id: 'crown', name: 'Koning Kroon', category: 'Hoofd', cost: 16, emoji: '👑' },
-  { id: 'wand', name: 'Magische Staf', category: 'Hand', cost: 14, emoji: '✨' },
-  { id: 'bowtie', name: 'Bowtie', category: 'Lichaam', cost: 8, emoji: '🎀' },
-  { id: 'flower', name: 'Bloemen Krans', category: 'Hoofd', cost: 11, emoji: '🌸' },
-  { id: 'patch', name: 'Piraat Eye Patch', category: 'Gezicht', cost: 10, emoji: '🏴‍☠️' },
+  { id: 'sunglasses', name: 'Coole Zonnebril', category: 'Gezicht', cost: 60, emoji: '🕶️' },
+  { id: 'hoodie', name: 'Feest Hoodie', category: 'Hoofd', cost: 85, emoji: '🎩' },
+  { id: 'crown', name: 'Koning Kroon', category: 'Hoofd', cost: 130, emoji: '👑' },
+  { id: 'wand', name: 'Magische Staf', category: 'Hand', cost: 105, emoji: '✨' },
+  { id: 'bowtie', name: 'Bowtie', category: 'Lichaam', cost: 55, emoji: '🎀' },
+  { id: 'flower', name: 'Bloemen Krans', category: 'Hoofd', cost: 75, emoji: '🌸' },
+  { id: 'patch', name: 'Piraat Eye Patch', category: 'Gezicht', cost: 70, emoji: '🏴‍☠️' },
 ];
 
 const categories = ['Alle', 'Hoofd', 'Gezicht', 'Lichaam'];

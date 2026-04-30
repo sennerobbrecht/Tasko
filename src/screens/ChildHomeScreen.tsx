@@ -105,18 +105,20 @@ export default function ChildHomeScreen({
   }, [childId]);
 
   const handleToggleTask = async (task: ChildRoutineTask) => {
-    if (!childId || togglingTaskId || task.is_completed) return;
+    if (!childId || togglingTaskId) return;
+
+    const nextCompleted = !task.is_completed;
 
     setTogglingTaskId(task.routine_task_id);
 
     setRoutineTasks((prev) =>
-      prev.map((row) => (row.routine_task_id === task.routine_task_id ? { ...row, is_completed: true } : row)),
+      prev.map((row) => (row.routine_task_id === task.routine_task_id ? { ...row, is_completed: nextCompleted } : row)),
     );
 
     const { data, error } = await setTaskCompletionForChild({
       childId,
       routineTaskId: task.routine_task_id,
-      completed: true,
+      completed: nextCompleted,
     });
 
     if (error) {
@@ -131,7 +133,7 @@ export default function ChildHomeScreen({
     const newBalance = data?.new_balance ?? coins;
     onCoinsChange?.(newBalance);
 
-    if ((data?.bonus_points ?? 0) > 0) {
+    if (nextCompleted && (data?.bonus_points ?? 0) > 0) {
       Alert.alert('Bonus verdiend!', `Alles klaar vandaag! Je kreeg +${data?.bonus_points ?? 0} bonus munten.`);
     }
 
@@ -223,7 +225,7 @@ export default function ChildHomeScreen({
           <Pressable
             key={task.routine_task_id}
             onPress={() => handleToggleTask(task)}
-            disabled={togglingTaskId === task.routine_task_id || task.is_completed}
+            disabled={togglingTaskId === task.routine_task_id}
             style={[styles.taskRow, task.is_completed && styles.taskRowDone]}
           >
             <View style={[styles.taskCheck, task.is_completed && styles.taskCheckDone]}>

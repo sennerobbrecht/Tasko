@@ -49,11 +49,18 @@ create table if not exists public.routine_tasks (
   routine_id uuid not null references public.routines(id) on delete cascade,
   title text not null,
   sort_order int not null default 0,
-  reward_points int not null default 0,
+  reward_points int not null default 5,
   is_required boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.routine_tasks
+alter column reward_points set default 5;
+
+update public.routine_tasks
+set reward_points = 5
+where reward_points = 0;
 
 create table if not exists public.task_completions (
   id uuid primary key default gen_random_uuid(),
@@ -592,7 +599,7 @@ as $$
     r.title as routine_title,
     rt.title as task_title,
     rt.sort_order,
-    rt.reward_points,
+    coalesce(nullif(rt.reward_points, 0), 5) as reward_points,
     exists (
       select 1
       from public.task_completions tc
@@ -642,7 +649,7 @@ begin
     raise exception 'Kindprofiel niet gevonden';
   end if;
 
-  select coalesce(rt.reward_points, 0)
+  select coalesce(nullif(rt.reward_points, 0), 5)
     into v_reward_points
   from public.routine_tasks rt
   where rt.id = p_routine_task_id;
@@ -652,9 +659,27 @@ begin
   end if;
 
   if p_completed is not true then
-    select cp.coin_balance into v_new_balance
-    from public.child_profiles cp
-    where cp.id = p_child_id;
+    if exists (
+      select 1
+      from public.task_completions tc
+      where tc.routine_task_id = p_routine_task_id
+        and tc.child_id = p_child_id
+        and tc.completed_on = current_date
+    ) then
+      delete from public.task_completions tc
+      where tc.routine_task_id = p_routine_task_id
+        and tc.child_id = p_child_id
+        and tc.completed_on = current_date;
+
+      update public.child_profiles cp
+      set coin_balance = greatest(0, cp.coin_balance - v_reward_points)
+      where cp.id = p_child_id
+      returning cp.coin_balance into v_new_balance;
+    else
+      select cp.coin_balance into v_new_balance
+      from public.child_profiles cp
+      where cp.id = p_child_id;
+    end if;
 
     return query select 0, 0, 0, coalesce(v_new_balance, 0);
     return;
@@ -700,13 +725,13 @@ begin
 
     if v_total_count > 0 and v_completed_count >= v_total_count then
       insert into public.child_daily_rewards (child_id, reward_date, reward_type, points)
-      values (p_child_id, current_date, 'all_tasks_done_bonus', 12)
+      values (p_child_id, current_date, 'all_tasks_done_bonus', 30)
       on conflict (child_id, reward_date, reward_type) do nothing;
 
       get diagnostics v_inserted_rows = row_count;
 
       if v_inserted_rows > 0 then
-        v_bonus_points := 12;
+        v_bonus_points := 30;
         update public.child_profiles cp
         set coin_balance = cp.coin_balance + v_bonus_points
         where cp.id = p_child_id
