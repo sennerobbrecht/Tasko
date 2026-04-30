@@ -1,7 +1,9 @@
 import { type AccessoryKey } from '../components/MonsterPreview';
 import { supabase } from '../lib/supabase';
 
-export async function getChildShopState(childId: string): Promise<{ data: { coinBalance: number; ownedAccessories: AccessoryKey[] } | null; error: Error | null }> {
+export async function getChildShopState(
+  childId: string,
+): Promise<{ data: { coinBalance: number; streakDays: number; ownedAccessories: AccessoryKey[] } | null; error: Error | null }> {
   const { data, error } = await supabase.rpc('get_child_shop_state', {
     p_child_id: childId,
   });
@@ -12,12 +14,13 @@ export async function getChildShopState(childId: string): Promise<{ data: { coin
 
   const row = Array.isArray(data) ? data[0] : data;
   if (!row) {
-    return { data: { coinBalance: 0, ownedAccessories: [] }, error: null };
+    return { data: { coinBalance: 0, streakDays: 0, ownedAccessories: [] }, error: null };
   }
 
   return {
     data: {
       coinBalance: row.coin_balance ?? 0,
+      streakDays: row.streak_days ?? 0,
       ownedAccessories: (row.owned_accessories ?? []) as AccessoryKey[],
     },
     error: null,

@@ -109,7 +109,7 @@ export default function ChildAchievementsScreen({ childId, coins, level, onBack 
   }, [coins, completionsByTitle, level, streakDays, totalCompletions]);
 
   const unlockedCount = achievements.filter((item) => item.done).length;
-  const progressWidth = `${Math.round((unlockedCount / achievements.length) * 100)}%`;
+  const progressWidth = `${Math.round((unlockedCount / achievements.length) * 100)}%` as `${number}%`;
 
   return (
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>

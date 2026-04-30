@@ -25,6 +25,7 @@ create table if not exists public.child_profiles (
   display_name text not null,
   avatar_seed text,
   coin_balance int not null default 0,
+  streak_days int not null default 0,
   birth_year int,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -32,6 +33,9 @@ create table if not exists public.child_profiles (
 
 alter table public.child_profiles
 add column if not exists coin_balance int not null default 0;
+
+alter table public.child_profiles
+add column if not exists streak_days int not null default 0;
 
 create table if not exists public.routines (
   id uuid primary key default gen_random_uuid(),
@@ -626,7 +630,8 @@ returns table(
   awarded_points int,
   bonus_points int,
   total_awarded_points int,
-  new_balance int
+  new_balance int,
+  current_streak_days int
 )
 language plpgsql
 security definer
@@ -640,6 +645,7 @@ declare
   v_completed_count int := 0;
   v_total_count int := 0;
   v_new_balance int := 0;
+  v_streak_days int := 0;
 begin
   if not exists (
     select 1
@@ -681,7 +687,33 @@ begin
       where cp.id = p_child_id;
     end if;
 
-    return query select 0, 0, 0, coalesce(v_new_balance, 0);
+    with recursive streak_chain(day_key, len) as (
+      select current_date::date, 1
+      where exists (
+        select 1
+        from public.task_completions tc
+        where tc.child_id = p_child_id
+          and tc.completed_on = current_date
+      )
+      union all
+      select (day_key - 1), len + 1
+      from streak_chain
+      where exists (
+        select 1
+        from public.task_completions tc
+        where tc.child_id = p_child_id
+          and tc.completed_on = day_key - 1
+      )
+    )
+    select coalesce(max(len), 0)
+      into v_streak_days
+    from streak_chain;
+
+    update public.child_profiles cp
+    set streak_days = v_streak_days
+    where cp.id = p_child_id;
+
+    return query select 0, 0, 0, coalesce(v_new_balance, 0), v_streak_days;
     return;
   end if;
 
@@ -739,21 +771,51 @@ begin
       end if;
     end if;
 
+    with recursive streak_chain(day_key, len) as (
+      select current_date::date, 1
+      where exists (
+        select 1
+        from public.task_completions tc
+        where tc.child_id = p_child_id
+          and tc.completed_on = current_date
+      )
+      union all
+      select (day_key - 1), len + 1
+      from streak_chain
+      where exists (
+        select 1
+        from public.task_completions tc
+        where tc.child_id = p_child_id
+          and tc.completed_on = day_key - 1
+      )
+    )
+    select coalesce(max(len), 0)
+      into v_streak_days
+    from streak_chain;
+
+    update public.child_profiles cp
+    set streak_days = v_streak_days
+    where cp.id = p_child_id;
+
     return query select
       case when v_task_inserted_rows > 0 then v_reward_points else 0 end,
       v_bonus_points,
       (case when v_task_inserted_rows > 0 then v_reward_points else 0 end) + v_bonus_points,
-      coalesce(v_new_balance, 0);
+      coalesce(v_new_balance, 0),
+      v_streak_days;
     return;
   end if;
 end;
 $$;
+
+drop function if exists public.get_child_shop_state(uuid);
 
 create or replace function public.get_child_shop_state(
   p_child_id uuid
 )
 returns table(
   coin_balance int,
+  streak_days int,
   owned_accessories text[]
 )
 language sql
@@ -762,11 +824,12 @@ set search_path = public
 as $$
   select
     cp.coin_balance,
+    cp.streak_days,
     coalesce(array_agg(ca.accessory_key) filter (where ca.accessory_key is not null), '{}')::text[] as owned_accessories
   from public.child_profiles cp
   left join public.child_accessories ca on ca.child_id = cp.id
   where cp.id = p_child_id
-  group by cp.id, cp.coin_balance;
+  group by cp.id, cp.coin_balance, cp.streak_days;
 $$;
 
 create or replace function public.buy_child_accessory(

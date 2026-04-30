@@ -186,7 +186,7 @@ export async function setTaskCompletionForChild({
   routineTaskId: string;
   completed: boolean;
 }): Promise<{
-  data: { awarded_points: number; bonus_points: number; total_awarded_points: number; new_balance: number } | null;
+  data: { awarded_points: number; bonus_points: number; total_awarded_points: number; new_balance: number; current_streak_days: number } | null;
   error: Error | null;
 }> {
   const { data, error } = await supabase.rpc('set_task_completion_for_child', {
@@ -202,8 +202,8 @@ export async function setTaskCompletionForChild({
   const firstRow = Array.isArray(data) ? data[0] : data;
   return {
     data:
-      (firstRow as { awarded_points: number; bonus_points: number; total_awarded_points: number; new_balance: number } | null) ??
-      { awarded_points: 0, bonus_points: 0, total_awarded_points: 0, new_balance: 0 },
+      (firstRow as { awarded_points: number; bonus_points: number; total_awarded_points: number; new_balance: number; current_streak_days: number } | null) ??
+      { awarded_points: 0, bonus_points: 0, total_awarded_points: 0, new_balance: 0, current_streak_days: 0 },
     error: null,
   };
 }

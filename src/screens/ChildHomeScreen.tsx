@@ -23,6 +23,7 @@ type ChildHomeScreenProps = {
   onOpenFocus: () => void;
   onOpenMood: () => void;
   onCoinsChange?: (nextCoins: number) => void;
+  onStreakChange?: (nextStreak: number) => void;
 };
 
 export default function ChildHomeScreen({
@@ -40,6 +41,7 @@ export default function ChildHomeScreen({
   onOpenFocus,
   onOpenMood,
   onCoinsChange,
+  onStreakChange,
 }: ChildHomeScreenProps) {
   const displayName = monsterName.trim() || 'Je nieuwe monstertje';
   const [routineTasks, setRoutineTasks] = useState<ChildRoutineTask[]>([]);
@@ -132,6 +134,7 @@ export default function ChildHomeScreen({
 
     const newBalance = data?.new_balance ?? coins;
     onCoinsChange?.(newBalance);
+    onStreakChange?.(data?.current_streak_days ?? streakDays);
 
     if (nextCompleted && (data?.bonus_points ?? 0) > 0) {
       Alert.alert('Bonus verdiend!', `Alles klaar vandaag! Je kreeg +${data?.bonus_points ?? 0} bonus munten.`);

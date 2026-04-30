@@ -60,7 +60,7 @@ export default function App() {
 	const [selectedMonsterColor, setSelectedMonsterColor] = useState<string>(MONSTER_COLORS[0]);
 	const [coins, setCoins] = useState(0);
 	const [level, setLevel] = useState(1);
-	const [streakDays] = useState(0);
+	const [streakDays, setStreakDays] = useState(0);
 	const [tasksDone] = useState(0);
 	const [badgesUnlocked] = useState(0);
 	const [focusSelectedMinutes, setFocusSelectedMinutes] = useState<5 | 10 | 15 | 25 | null>(null);
@@ -122,6 +122,7 @@ export default function App() {
 			}
 
 			setCoins(data.coinBalance);
+			setStreakDays(data.streakDays);
 			setOwnedAccessories(data.ownedAccessories);
 			if (!selectedAccessory && data.ownedAccessories.length > 0) {
 				setSelectedAccessory(data.ownedAccessories[0]);
@@ -193,6 +194,7 @@ export default function App() {
 				onOpenFocus={() => setScreen('childFocusTime')}
 				onOpenMood={() => setScreen('childMood')}
 				onCoinsChange={setCoins}
+				onStreakChange={setStreakDays}
 			/>
 		);
 	}
