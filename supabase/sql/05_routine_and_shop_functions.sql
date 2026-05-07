@@ -271,3 +271,34 @@ begin
   return query select true, 'Gekocht', v_balance;
 end;
 $$;
+
+drop function if exists public.get_child_achievement_stats(uuid);
+create or replace function public.get_child_achievement_stats(
+  p_child_id uuid
+)
+returns table(
+  total_completions int,
+  streak_days int
+)
+language sql
+security definer
+set search_path = public
+as $$
+  select
+    coalesce(
+      (
+        select count(*)
+        from public.task_completions tc
+        where tc.child_id = p_child_id
+      ),
+      0
+    )::int as total_completions,
+    coalesce(
+      (
+        select cp.streak_days
+        from public.child_profiles cp
+        where cp.id = p_child_id
+      ),
+      0
+    )::int as streak_days;
+$$;

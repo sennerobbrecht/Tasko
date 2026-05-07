@@ -23,6 +23,7 @@ import { createChildFromInvite, ensureFamilyForCurrentUser, loginChildWithCodeAn
 import { MONSTER_COLORS, type AccessoryKey } from './src/components/MonsterPreview';
 import { buyAccessoryForChild, getChildShopState } from './src/services/economy';
 import { flushOfflineQueue, getOfflineQueueCount } from './src/services/offlineQueue';
+import { supabase } from './src/lib/supabase';
 
 type User = {
   id: string;
@@ -62,8 +63,8 @@ export default function App() {
 	const [coins, setCoins] = useState(0);
 	const [level, setLevel] = useState(1);
 	const [streakDays, setStreakDays] = useState(0);
-	const [tasksDone] = useState(0);
-	const [badgesUnlocked] = useState(0);
+	const [tasksDone, setTasksDone] = useState(0);
+	const [badgesUnlocked, setBadgesUnlocked] = useState(0);
 	const [focusSelectedMinutes, setFocusSelectedMinutes] = useState<5 | 10 | 15 | 25 | null>(null);
 	const [focusRemainingSeconds, setFocusRemainingSeconds] = useState(0);
 	const [focusEndAtMs, setFocusEndAtMs] = useState<number | null>(null);
@@ -140,6 +141,62 @@ export default function App() {
 	useEffect(() => {
 		setLevel(Math.max(1, Math.floor(coins / 100) + 1));
 	}, [coins]);
+
+	useEffect(() => {
+		let mounted = true;
+
+		const refreshAchievementCounters = async () => {
+			if (!childProfileId) {
+				if (mounted) {
+					setTasksDone(0);
+					setBadgesUnlocked(0);
+				}
+				return;
+			}
+
+			const { data, error } = await supabase.rpc('get_child_achievement_stats', {
+				p_child_id: childProfileId,
+			});
+
+			if (!mounted || error || !data) {
+				return;
+			}
+
+			const firstRow = Array.isArray(data) ? data[0] : data;
+			const totalCompletions = Number(firstRow?.total_completions ?? 0);
+			const streakFromStats = Number(firstRow?.streak_days ?? 0);
+
+			const unlocked = [
+				totalCompletions >= 1,
+				totalCompletions >= 10,
+				totalCompletions >= 25,
+				totalCompletions >= 50,
+				streakFromStats >= 3,
+				streakFromStats >= 7,
+				streakFromStats >= 14,
+				coins >= 50,
+				coins >= 200,
+				level >= 3,
+				level >= 5,
+			].filter(Boolean).length;
+
+			setTasksDone(totalCompletions);
+			setBadgesUnlocked(unlocked);
+		};
+
+		refreshAchievementCounters();
+
+		const channel = supabase
+			.channel('app-achievements-counters-live')
+			.on('postgres_changes', { event: '*', schema: 'public', table: 'task_completions' }, refreshAchievementCounters)
+			.on('postgres_changes', { event: '*', schema: 'public', table: 'child_profiles' }, refreshAchievementCounters)
+			.subscribe();
+
+		return () => {
+			mounted = false;
+			supabase.removeChannel(channel);
+		};
+	}, [childProfileId, coins, level]);
 
 	useEffect(() => {
 		let isMounted = true;

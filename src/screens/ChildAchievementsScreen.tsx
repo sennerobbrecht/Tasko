@@ -15,7 +15,6 @@ type ChildAchievementsScreenProps = {
 type Achievement = { title: string; subtitle: string; done: boolean };
 
 export default function ChildAchievementsScreen({ childId, coins, level, onBack }: ChildAchievementsScreenProps) {
-  const [completionsByTitle, setCompletionsByTitle] = useState<Record<string, number>>({});
   const [totalCompletions, setTotalCompletions] = useState(0);
   const [streakDays, setStreakDays] = useState(0);
 
@@ -25,52 +24,23 @@ export default function ChildAchievementsScreen({ childId, coins, level, onBack 
     const loadTaskStats = async () => {
       if (!childId) {
         if (mounted) {
-          setCompletionsByTitle({});
           setTotalCompletions(0);
           setStreakDays(0);
         }
         return;
       }
 
-      const { data, error } = await supabase
-        .from('task_completions')
-        .select('completed_on,routine_tasks(title)')
-        .eq('child_id', childId);
+      const { data, error } = await supabase.rpc('get_child_achievement_stats', {
+        p_child_id: childId,
+      });
 
       if (!mounted || error || !data) {
         return;
       }
 
-      const counts: Record<string, number> = {};
-      const completedDates = new Set<string>();
-
-      data.forEach((row: any) => {
-        const title = String(row.routine_tasks?.title ?? '').toLowerCase().trim();
-        if (title) {
-          counts[title] = (counts[title] ?? 0) + 1;
-        }
-
-        const dayKey = String(row.completed_on ?? '');
-        if (dayKey) {
-          completedDates.add(dayKey);
-        }
-      });
-
-      const sortedDates = Array.from(completedDates).sort((a, b) => b.localeCompare(a));
-      let streak = 0;
-      let cursor = new Date();
-      cursor.setHours(0, 0, 0, 0);
-
-      while (true) {
-        const key = cursor.toISOString().slice(0, 10);
-        if (!sortedDates.includes(key)) break;
-        streak += 1;
-        cursor.setDate(cursor.getDate() - 1);
-      }
-
-      setCompletionsByTitle(counts);
-      setTotalCompletions(data.length);
-      setStreakDays(streak);
+      const firstRow = Array.isArray(data) ? data[0] : data;
+      setTotalCompletions(Number(firstRow?.total_completions ?? 0));
+      setStreakDays(Number(firstRow?.streak_days ?? 0));
     };
 
     loadTaskStats();
@@ -87,26 +57,20 @@ export default function ChildAchievementsScreen({ childId, coins, level, onBack 
   }, [childId]);
 
   const achievements = useMemo<Achievement[]>(() => {
-    const countMatching = (matcher: (title: string) => boolean) =>
-      Object.entries(completionsByTitle).reduce((sum, [title, value]) => (matcher(title) ? sum + value : sum), 0);
-
-    const brushingCount = countMatching((title) => title.includes('tanden'));
-    const homeworkCount = countMatching((title) => title.includes('huiswerk'));
-    const tidyCount = countMatching((title) => title.includes('opruim'));
-
     return [
       { title: 'Eerste Vinkje', subtitle: 'Voltooi je eerste taak', done: totalCompletions >= 1 },
       { title: 'Taken Starter', subtitle: 'Voltooi 10 taken', done: totalCompletions >= 10 },
-      { title: 'Taken Pro', subtitle: 'Voltooi 50 taken', done: totalCompletions >= 50 },
-      { title: 'Poets Kampioen', subtitle: 'Tandenpoetsen 10 keer afgevinkt', done: brushingCount >= 10 },
-      { title: 'Huiswerk Held', subtitle: 'Huiswerk 10 keer afgevinkt', done: homeworkCount >= 10 },
-      { title: 'Opruim Held', subtitle: 'Opruimtaken 10 keer afgevinkt', done: tidyCount >= 10 },
+      { title: 'Taken Pro', subtitle: 'Voltooi 25 taken', done: totalCompletions >= 25 },
+      { title: 'Taken Legend', subtitle: 'Voltooi 50 taken', done: totalCompletions >= 50 },
+      { title: 'Streak Starter', subtitle: 'Houd een streak van 3 dagen', done: streakDays >= 3 },
       { title: 'Streak Ster', subtitle: 'Houd een streak van 7 dagen', done: streakDays >= 7 },
+      { title: 'Streak Koning', subtitle: 'Houd een streak van 14 dagen', done: streakDays >= 14 },
+      { title: 'Muntjes Starter', subtitle: 'Verzamel 50 munten', done: coins >= 50 },
       { title: 'Muntjes Meester', subtitle: 'Verzamel 200 munten', done: coins >= 200 },
       { title: 'Level 3', subtitle: 'Bereik level 3', done: level >= 3 },
       { title: 'Level 5', subtitle: 'Bereik level 5', done: level >= 5 },
     ];
-  }, [coins, completionsByTitle, level, streakDays, totalCompletions]);
+  }, [coins, level, streakDays, totalCompletions]);
 
   const unlockedCount = achievements.filter((item) => item.done).length;
   const progressWidth = `${Math.round((unlockedCount / achievements.length) * 100)}%` as `${number}%`;
