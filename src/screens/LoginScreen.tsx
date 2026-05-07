@@ -27,11 +27,16 @@ export default function LoginScreen({ onBack, onForgotPassword, onRegister, onSu
 
     setErrorMessage(null);
     setIsSubmitting(true);
-    const error = await onSubmit({ email, password });
-    setIsSubmitting(false);
-
-    if (error) {
-      setErrorMessage(error);
+    try {
+      const error = await onSubmit({ email, password });
+      if (error) {
+        setErrorMessage(error);
+      }
+    } catch (error) {
+      const message = (error as { message?: string } | null)?.message;
+      setErrorMessage(message || 'Inloggen mislukt. Probeer opnieuw.');
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
