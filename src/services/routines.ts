@@ -101,11 +101,13 @@ export async function createRoutineWithTasks({
   description,
   isActive = true,
   tasks,
+  assignedChildIds = [],
 }: {
   title: string;
   description?: string;
   isActive?: boolean;
   tasks: RoutineTaskInput[];
+  assignedChildIds?: string[];
 }): Promise<{ data: RoutineSummary | null; error: Error | null }> {
   const { family, error: familyError } = await getCurrentFamily();
   if (familyError) {
@@ -152,6 +154,20 @@ export async function createRoutineWithTasks({
     if (taskError) {
       await supabase.from('routines').delete().eq('id', routine.id);
       return { data: null, error: taskError };
+    }
+  }
+
+  if (assignedChildIds.length > 0) {
+    const { error: assignmentError } = await supabase.from('routine_assignments').insert(
+      assignedChildIds.map((childId) => ({
+        routine_id: routine.id,
+        child_id: childId,
+      })),
+    );
+
+    if (assignmentError) {
+      await supabase.from('routines').delete().eq('id', routine.id);
+      return { data: null, error: assignmentError };
     }
   }
 

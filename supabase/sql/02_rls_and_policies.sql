@@ -89,6 +89,7 @@ alter table public.family_members enable row level security;
 alter table public.child_profiles enable row level security;
 alter table public.routines enable row level security;
 alter table public.routine_tasks enable row level security;
+alter table public.routine_assignments enable row level security;
 alter table public.task_completions enable row level security;
 alter table public.mood_entries enable row level security;
 alter table public.team_invites enable row level security;
@@ -161,6 +162,33 @@ with check (
   exists (
     select 1 from public.routines r
     where r.id = routine_tasks.routine_id
+      and public.has_family_write_access(r.family_id)
+  )
+);
+
+drop policy if exists routine_assignments_select on public.routine_assignments;
+create policy routine_assignments_select on public.routine_assignments
+for select using (
+  exists (
+    select 1 from public.routines r
+    where r.id = routine_assignments.routine_id
+      and public.is_family_member(r.family_id)
+  )
+);
+
+drop policy if exists routine_assignments_write on public.routine_assignments;
+create policy routine_assignments_write on public.routine_assignments
+for all using (
+  exists (
+    select 1 from public.routines r
+    where r.id = routine_assignments.routine_id
+      and public.has_family_write_access(r.family_id)
+  )
+)
+with check (
+  exists (
+    select 1 from public.routines r
+    where r.id = routine_assignments.routine_id
       and public.has_family_write_access(r.family_id)
   )
 );

@@ -69,6 +69,14 @@ create table if not exists public.routine_tasks (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.routine_assignments (
+  id uuid primary key default gen_random_uuid(),
+  routine_id uuid not null references public.routines(id) on delete cascade,
+  child_id uuid not null references public.child_profiles(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  unique (routine_id, child_id)
+);
+
 alter table public.routine_tasks alter column reward_points set default 5;
 update public.routine_tasks set reward_points = 5 where reward_points = 0;
 

@@ -35,6 +35,19 @@ as $$
   join public.routine_tasks rt on rt.routine_id = r.id
   where cp.id = p_child_id
     and r.is_active = true
+    and (
+      not exists (
+        select 1
+        from public.routine_assignments ra_any
+        where ra_any.routine_id = r.id
+      )
+      or exists (
+        select 1
+        from public.routine_assignments ra
+        where ra.routine_id = r.id
+          and ra.child_id = p_child_id
+      )
+    )
   order by r.created_at desc, rt.sort_order asc, rt.created_at asc;
 $$;
 
@@ -151,7 +164,21 @@ begin
   from public.routines r
   join public.routine_tasks rt on rt.routine_id = r.id
   join public.child_profiles cp on cp.family_id = r.family_id
-  where cp.id = p_child_id and r.is_active = true;
+  where cp.id = p_child_id
+    and r.is_active = true
+    and (
+      not exists (
+        select 1
+        from public.routine_assignments ra_any
+        where ra_any.routine_id = r.id
+      )
+      or exists (
+        select 1
+        from public.routine_assignments ra
+        where ra.routine_id = r.id
+          and ra.child_id = p_child_id
+      )
+    );
 
   select count(*) into v_completed_count
   from public.task_completions tc
@@ -161,7 +188,20 @@ begin
   where tc.child_id = p_child_id
     and tc.completed_on = current_date
     and cp.id = p_child_id
-    and r.is_active = true;
+    and r.is_active = true
+    and (
+      not exists (
+        select 1
+        from public.routine_assignments ra_any
+        where ra_any.routine_id = r.id
+      )
+      or exists (
+        select 1
+        from public.routine_assignments ra
+        where ra.routine_id = r.id
+          and ra.child_id = p_child_id
+      )
+    );
 
   if v_total_count > 0 and v_completed_count >= v_total_count then
     insert into public.child_daily_rewards (child_id, reward_date, reward_type, points)

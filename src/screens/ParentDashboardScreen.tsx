@@ -35,6 +35,13 @@ type RoutineTask = {
   done: boolean;
 };
 
+type RoutineTemplate = {
+  id: string;
+  title: string;
+  subtitle: string;
+  tasks: string[];
+};
+
 const MOOD_TO_EMOJI: Record<MoodKey, string> = {
   happy: '😊',
   content: '😌',
@@ -51,12 +58,23 @@ const MOOD_TO_LABEL: Record<MoodKey, string> = {
   sad: 'verdrietig',
 };
 
-const TEMPLATES = [
-  { id: 'school-week', title: 'School Week', subtitle: 'Perfecte routine voor schooldagen' },
-  { id: 'weekend-routine', title: 'Weekend Routine', subtitle: 'Ontspannen en toch structuur' },
-  { id: 'zomer-routine', title: 'Zomervakantie', subtitle: 'Zonnige routine voor vrije dagen' },
-  { id: 'avond-routine', title: 'Avond Routine', subtitle: 'Rustig afsluiten om beter te slapen' },
-  { id: 'verjaardag', title: 'Verjaardagsdag', subtitle: 'Speciale routine voor feestjes' },
+const BASIC_TEMPLATES: RoutineTemplate[] = [
+  { id: 'school-week', title: 'School Week', subtitle: 'Perfecte routine voor schooldagen', tasks: ['Opstaan', 'Ontbijten', 'Tandenpoetsen', 'Naar school', 'Huiswerk', 'Avondeten', 'Naar bed'] },
+  { id: 'weekend-routine', title: 'Weekend Routine', subtitle: 'Ontspannen en toch structuur', tasks: ['Opstaan', 'Kamer opruimen', 'Buiten spelen', 'Lezen', 'Tandenpoetsen'] },
+  { id: 'avond-routine', title: 'Avond Routine', subtitle: 'Rustig afsluiten om beter te slapen', tasks: ['Avondeten', 'Douchen', 'Pyjama aan', 'Boek lezen', 'Naar bed'] },
+];
+
+const PREMIUM_TEMPLATES: RoutineTemplate[] = [
+  ...BASIC_TEMPLATES,
+  { id: 'exam-week', title: 'Toetsweek Focus', subtitle: 'Studieblokken en rustmomenten', tasks: ['Planning checken', '30 min studeren', '5 min pauze', 'Samenvatting maken', 'Op tijd slapen'] },
+  { id: 'sport-day', title: 'Sportdag', subtitle: 'Energieke routine met beweging', tasks: ['Sporttas klaarzetten', 'Water drinken', 'Training volgen', 'Stretching', 'Douchen'] },
+  { id: 'zomer-routine', title: 'Zomervakantie', subtitle: 'Zonnige routine voor vrije dagen', tasks: ['Ontbijten', 'Buitenactiviteit', 'Lunch', 'Creatieve activiteit', 'Opruimen'] },
+  { id: 'creative-day', title: 'Creatieve Dag', subtitle: 'Muziek, tekenen en bouwen', tasks: ['Tekenen', 'Muziekmoment', 'Lego bouwen', 'Werkplek opruimen'] },
+  { id: 'healthy-day', title: 'Gezonde Dag', subtitle: 'Focus op voeding en zelfzorg', tasks: ['Fruitmoment', 'Water drinken', 'Beweging', 'Vroeg slapen'] },
+  { id: 'birthday-party', title: 'Verjaardagsdag', subtitle: 'Speciale routine voor feestjes', tasks: ['Kamer versieren', 'Cadeautjes klaarleggen', 'Feesttafel klaarzetten', 'Opruimen na feestje'] },
+  { id: 'travel-day', title: 'Reisdag', subtitle: 'Geen stress voor vertrek', tasks: ['Koffer inpakken', 'Checklist afvinken', 'Snacks meenemen', 'Vertrek op tijd'] },
+  { id: 'chores-plus', title: 'Huishoudheld', subtitle: 'Uitgebreide huishoudroutine', tasks: ['Vaatwasser uitladen', 'Tafel dekken', 'Kleding sorteren', 'Kamer stofzuigen'] },
+  { id: 'mindful-day', title: 'Rust & Mindfulness', subtitle: 'Kalme structuur voor drukke dagen', tasks: ['Ademhalingsoefening', 'Dagdoel noteren', 'Schermpauze', 'Dankbaarheidsmoment'] },
 ];
 
 export default function ParentDashboardScreen({ currentUser, onLogout, onOpenPremium, initialTab = 'home', isPremium = false }: ParentDashboardScreenProps) {
@@ -81,15 +99,8 @@ export default function ParentDashboardScreen({ currentUser, onLogout, onOpenPre
   const [childrenLoading, setChildrenLoading] = useState(true);
   const [inviteCodeDb, setInviteCodeDb] = useState<string | null>(null);
   const [inviteCodeLocal, setInviteCodeLocal] = useState<string | null>(null);
-  const [routineTasks, setRoutineTasks] = useState<RoutineTask[]>([
-    { id: 'wake-up', label: 'Opstaan', done: true },
-    { id: 'breakfast', label: 'Ontbijten', done: true },
-    { id: 'brush', label: 'Tandenpoetsen', done: true },
-    { id: 'to-school', label: 'Naar school', done: true },
-    { id: 'homework', label: 'Huiswerk', done: true },
-    { id: 'dinner', label: 'Avondeten', done: true },
-    { id: 'bed', label: 'Naar bed', done: true },
-  ]);
+  const [routineTasks, setRoutineTasks] = useState<RoutineTask[]>([]);
+  const [customTaskInput, setCustomTaskInput] = useState('');
   const [savingRoutine, setSavingRoutine] = useState(false);
   const [showFAQModal, setShowFAQModal] = useState(false);
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
@@ -105,11 +116,25 @@ export default function ParentDashboardScreen({ currentUser, onLogout, onOpenPre
   const [streakDays, setStreakDays] = useState(0);
   const [completionsLoading, setCompletionsLoading] = useState(true);
   const [weekMoodByDay, setWeekMoodByDay] = useState<Record<string, MoodKey>>({});
+  const [todayMoodByChild, setTodayMoodByChild] = useState<Record<string, MoodKey>>({});
+  const [selectedChildIds, setSelectedChildIds] = useState<string[]>([]);
 
+  const availableTemplates = useMemo(() => (isPremium ? PREMIUM_TEMPLATES : BASIC_TEMPLATES), [isPremium]);
   const selectedTemplate = useMemo(
-    () => TEMPLATES.find((template) => template.id === selectedTemplateId) ?? TEMPLATES[0],
-    [selectedTemplateId],
+    () => availableTemplates.find((template) => template.id === selectedTemplateId) ?? availableTemplates[0],
+    [availableTemplates, selectedTemplateId],
   );
+
+  useEffect(() => {
+    if (!selectedTemplate) return;
+    setRoutineTasks(
+      selectedTemplate.tasks.map((task, index) => ({
+        id: `${selectedTemplate.id}-${index}-${task.toLowerCase().replace(/\s+/g, '-')}`,
+        label: task,
+        done: true,
+      })),
+    );
+  }, [selectedTemplate?.id]);
 
   const totalTaskCount = useMemo(
     () => dbRoutines.reduce((sum, routine) => sum + routine.routine_tasks.length, 0),
@@ -139,6 +164,18 @@ export default function ParentDashboardScreen({ currentUser, onLogout, onOpenPre
   const todayMoodKey = weekMoodByDay[new Date().toISOString().slice(0, 10)];
   const todayMoodEmoji = todayMoodKey ? MOOD_TO_EMOJI[todayMoodKey] : '—';
   const todayMoodLabel = todayMoodKey ? MOOD_TO_LABEL[todayMoodKey] : 'nog niet ingevuld';
+
+  useEffect(() => {
+    if (children.length === 0) {
+      setSelectedChildIds([]);
+      return;
+    }
+    setSelectedChildIds((prev) => {
+      const valid = prev.filter((id) => children.some((child) => child.id === id));
+      if (valid.length > 0) return valid;
+      return children.map((child) => child.id);
+    });
+  }, [children]);
 
   const handleInviteToTeam = () => {
     onOpenPremium?.();
@@ -315,14 +352,20 @@ export default function ParentDashboardScreen({ currentUser, onLogout, onOpenPre
       }
 
       const byDay: Record<string, MoodKey> = {};
+      const byChild: Record<string, MoodKey> = {};
+      const todayKey = new Date().toISOString().slice(0, 10);
       data.forEach((entry) => {
         const dayKey = new Date(entry.created_at).toISOString().slice(0, 10);
         const mood = entry.mood as MoodKey;
         if (!byDay[dayKey] && mood in MOOD_TO_EMOJI) {
           byDay[dayKey] = mood;
         }
+        if (dayKey === todayKey && !byChild[entry.child_id] && mood in MOOD_TO_EMOJI) {
+          byChild[entry.child_id] = mood;
+        }
       });
       setWeekMoodByDay(byDay);
+      setTodayMoodByChild(byChild);
     };
 
     fetchRoutines();
@@ -458,11 +501,17 @@ export default function ParentDashboardScreen({ currentUser, onLogout, onOpenPre
       return;
     }
 
+      if (selectedChildIds.length === 0) {
+        Alert.alert('Kies kind', 'Selecteer minstens 1 kind voor deze routine.');
+        return;
+      }
+
     setSavingRoutine(true);
     try {
       const { data, error } = await createRoutineWithTasks({
         title: selectedTemplate.title,
         description: selectedTemplate.subtitle,
+          assignedChildIds: selectedChildIds,
         tasks: selectedTasks.map((task, index) => ({
           title: task.label,
           sort_order: index,
@@ -965,6 +1014,17 @@ export default function ParentDashboardScreen({ currentUser, onLogout, onOpenPre
                 })}
               </View>
               <Text style={styles.todayMoodText}>Vandaag voelt je kind zich: {todayMoodEmoji} {todayMoodLabel}</Text>
+              <View style={styles.childMoodList}>
+                {children.map((child) => {
+                  const mood = todayMoodByChild[child.id];
+                  return (
+                    <View key={child.id} style={styles.childMoodRow}>
+                      <Text style={styles.childMoodName}>{child.display_name}</Text>
+                      <Text style={styles.childMoodValue}>{mood ? `${MOOD_TO_EMOJI[mood]} ${MOOD_TO_LABEL[mood]}` : '— nog niets'}</Text>
+                    </View>
+                  );
+                })}
+              </View>
 
               <View style={styles.chartShell}>
                 <View style={[styles.chartBar, { height: 46 }]} />
@@ -1002,9 +1062,12 @@ export default function ParentDashboardScreen({ currentUser, onLogout, onOpenPre
         {activeTab === 'planner' && (
           <>
             <View style={styles.card}>
-              <Text style={styles.cardTitle}>Populair</Text>
+              <View style={styles.rowBetween}>
+                <Text style={styles.cardTitle}>Populair</Text>
+                <Text style={styles.smallBadge}>{isPremium ? 'Premium aanbod' : 'Basic aanbod'}</Text>
+              </View>
               <View style={styles.templateGrid}>
-                {TEMPLATES.slice(0, 2).map((template) => (
+                {availableTemplates.slice(0, 2).map((template) => (
                   <TemplateCard
                     key={template.id}
                     title={template.title}
@@ -1017,8 +1080,8 @@ export default function ParentDashboardScreen({ currentUser, onLogout, onOpenPre
             </View>
 
             <View style={styles.card}>
-              <Text style={styles.cardTitle}>Alle Templates</Text>
-              {TEMPLATES.slice(2).map((template) => (
+              <Text style={styles.cardTitle}>{isPremium ? 'Alle Premium Templates' : 'Alle Basic Templates'}</Text>
+              {availableTemplates.slice(2).map((template) => (
                 <Pressable key={template.id} onPress={() => setSelectedTemplateId(template.id)} style={styles.templateRow}>
                   <View>
                     <Text style={styles.templateRowTitle}>{template.title}</Text>
@@ -1027,15 +1090,72 @@ export default function ParentDashboardScreen({ currentUser, onLogout, onOpenPre
                   <Text style={styles.templateRowAction}>{selectedTemplateId === template.id ? 'Actief' : 'Gebruik'}</Text>
                 </Pressable>
               ))}
+              {!isPremium ? (
+                <View style={styles.premiumHintBox}>
+                  <Text style={styles.premiumHintTitle}>Premium unlock</Text>
+                  <Text style={styles.premiumHintText}>Met Premium krijg je een veel grotere routinebibliotheek en custom routines op maat.</Text>
+                  <Pressable onPress={handleInviteToTeam} style={styles.premiumHintButton}>
+                    <Text style={styles.premiumHintButtonText}>Ontgrendel Premium</Text>
+                  </Pressable>
+                </View>
+              ) : null}
             </View>
 
             <View style={styles.card}>
               <View style={styles.rowBetween}>
-                <Text style={styles.cardTitle}>{selectedTemplate.title}</Text>
-                <Pressable style={styles.addButton}>
-                  <Text style={styles.addButtonText}>+ Toevoegen</Text>
+                <Text style={styles.cardTitle}>{selectedTemplate?.title ?? 'Template'}</Text>
+                <Pressable
+                  disabled={!isPremium}
+                  onPress={() => {
+                    const trimmed = customTaskInput.trim();
+                    if (!trimmed || !isPremium) return;
+                    setRoutineTasks((prev) => [
+                      ...prev,
+                      { id: `custom-${Date.now()}`, label: trimmed, done: true },
+                    ]);
+                    setCustomTaskInput('');
+                  }}
+                  style={[styles.addButton, !isPremium && styles.addButtonDisabled]}
+                >
+                  <Text style={styles.addButtonText}>{isPremium ? '+ Toevoegen' : 'Premium'}</Text>
                 </Pressable>
               </View>
+              <Text style={styles.subtleText}>{selectedTemplate?.subtitle}</Text>
+              <Text style={styles.assignTitle}>{isPremium ? 'Voor welke kinderen?' : 'Toegepast op alle kinderen'}</Text>
+              <View style={styles.assignRow}>
+                {children.map((child) => {
+                  const selected = selectedChildIds.includes(child.id);
+                  return (
+                    <Pressable
+                      key={child.id}
+                      onPress={() => {
+                        if (!isPremium) return;
+                        setSelectedChildIds((prev) =>
+                          prev.includes(child.id) ? prev.filter((id) => id !== child.id) : [...prev, child.id],
+                        );
+                      }}
+                      style={[styles.assignChip, selected && styles.assignChipActive, !isPremium && styles.assignChipLocked]}
+                    >
+                      <Text style={[styles.assignChipText, selected && styles.assignChipTextActive]}>{child.display_name}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              {isPremium ? (
+                <Text style={styles.assignHint}>Je kan 1 of meerdere kinderen selecteren voor deze routine.</Text>
+              ) : (
+                <Text style={styles.assignHint}>Basic gebruikt dezelfde routine voor alle gekoppelde kinderen.</Text>
+              )}
+
+              {isPremium ? (
+                <TextInput
+                  value={customTaskInput}
+                  onChangeText={setCustomTaskInput}
+                  placeholder="Voeg je eigen taak toe (bv. Piano oefenen)"
+                  placeholderTextColor="#9AA8B6"
+                  style={styles.customTaskInput}
+                />
+              ) : null}
 
               {routineTasks.map((task) => (
                 <Pressable
@@ -1051,7 +1171,15 @@ export default function ParentDashboardScreen({ currentUser, onLogout, onOpenPre
                     <Text style={styles.checkboxText}>{task.done ? '✓' : ''}</Text>
                   </View>
                   <Text style={styles.taskText}>{task.label}</Text>
-                  <Text style={styles.deleteTask}>🗑</Text>
+                  <Pressable
+                    disabled={!isPremium}
+                    onPress={() => {
+                      if (!isPremium) return;
+                      setRoutineTasks((prev) => prev.filter((row) => row.id !== task.id));
+                    }}
+                  >
+                    <Text style={[styles.deleteTask, !isPremium && styles.deleteTaskDisabled]}>🗑</Text>
+                  </Pressable>
                 </Pressable>
               ))}
 
@@ -1515,6 +1643,31 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
+  childMoodList: {
+    marginTop: 6,
+    gap: 6,
+  },
+  childMoodRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E5EEF2',
+    backgroundColor: '#F8FCFD',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  childMoodName: {
+    color: colors.textStrong,
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  childMoodValue: {
+    color: '#6E7C8D',
+    fontSize: 12,
+    fontWeight: '700',
+  },
   chartShell: {
     borderRadius: 14,
     borderWidth: 1,
@@ -1637,8 +1790,62 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
+  addButtonDisabled: {
+    opacity: 0.55,
+  },
   addButtonText: {
     color: '#2E93A2',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  customTaskInput: {
+    marginTop: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#D7E6ED',
+    backgroundColor: '#F9FCFD',
+    minHeight: 44,
+    paddingHorizontal: 12,
+    color: colors.textStrong,
+    fontWeight: '600',
+  },
+  assignTitle: {
+    marginTop: 8,
+    color: colors.textStrong,
+    fontWeight: '800',
+    fontSize: 13,
+  },
+  assignRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 6,
+  },
+  assignChip: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#D7E6ED',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: '#F8FCFD',
+  },
+  assignChipActive: {
+    borderColor: '#6877E3',
+    backgroundColor: '#EEF1FF',
+  },
+  assignChipLocked: {
+    opacity: 0.75,
+  },
+  assignChipText: {
+    color: '#6D7A8B',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  assignChipTextActive: {
+    color: '#4F5DC8',
+  },
+  assignHint: {
+    color: '#8A97A9',
     fontSize: 12,
     fontWeight: '700',
   },
@@ -1684,6 +1891,41 @@ const styles = StyleSheet.create({
   deleteTask: {
     color: '#F08B97',
     fontSize: 15,
+  },
+  deleteTaskDisabled: {
+    opacity: 0.35,
+  },
+  premiumHintBox: {
+    marginTop: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#CFE0FF',
+    backgroundColor: '#F3F6FF',
+    padding: 12,
+    gap: 8,
+  },
+  premiumHintTitle: {
+    color: '#4E5CC7',
+    fontWeight: '900',
+    fontSize: 14,
+  },
+  premiumHintText: {
+    color: '#6B7898',
+    fontWeight: '700',
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  premiumHintButton: {
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    backgroundColor: '#7E86E8',
+  },
+  premiumHintButtonText: {
+    color: colors.white,
+    fontWeight: '800',
+    fontSize: 12,
   },
   saveButton: {
     marginTop: 4,
