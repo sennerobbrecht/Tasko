@@ -13,6 +13,7 @@ type MonsterModel3DProps = {
   allowManualRotate?: boolean;
   initialYRotation?: number;
   accessory?: AccessoryKey;
+  transparentBackground?: boolean;
 };
 
 type LoadedModelProps = {
@@ -137,6 +138,7 @@ export function MonsterModel3D({
   allowManualRotate = false,
   initialYRotation = 0,
   accessory,
+  transparentBackground = false,
 }: MonsterModel3DProps) {
   const rotationRef = useRef(initialYRotation);
   const panStartRotation = useRef(initialYRotation);
@@ -158,8 +160,15 @@ export function MonsterModel3D({
   );
 
   return (
-    <View {...panResponder.panHandlers} style={[styles.shell, { width: size, height: size }]}>
-      <Canvas camera={{ position: [0, 0, 4.9], fov: 42 }}>
+    <View
+      {...panResponder.panHandlers}
+      style={[
+        styles.shell,
+        { width: size, height: size },
+        transparentBackground && styles.shellTransparent,
+      ]}
+    >
+      <Canvas camera={{ position: [0, 0, 4.9], fov: 42 }} gl={{ alpha: true, antialias: true }}>
         <ambientLight intensity={1.05} />
         <directionalLight position={[2, 2, 3]} intensity={1.2} />
         <directionalLight position={[-2, 1, -1]} intensity={0.5} />
@@ -195,6 +204,10 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: '#EEF4F7',
     position: 'relative',
+  },
+  shellTransparent: {
+    backgroundColor: 'transparent',
+    borderRadius: 0,
   },
   accessoryOverlay: {
     position: 'absolute',

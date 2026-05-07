@@ -5,6 +5,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import colors from '../theme/colors';
 import { type AccessoryKey } from '../components/MonsterPreview';
 import { MonsterModel3D } from '../components/MonsterModel3D';
+import MonsterARLauncher from '../components/MonsterARLauncher';
 import { supabase } from '../lib/supabase';
 import { getTodayRoutineTasksForChild, setTaskCompletionForChild, type ChildRoutineTask } from '../services/routines';
 
@@ -179,6 +180,9 @@ export default function ChildHomeScreen({
         </View>
         <Text style={styles.heroSubtitle}>Level {level} • Nieuwe start</Text>
         <View style={styles.previewBox}>
+          <View style={styles.arButtonWrap}>
+            <MonsterARLauncher color={selectedMonsterColor} accessory={selectedAccessory} />
+          </View>
           <MonsterModel3D color={selectedMonsterColor} size={180} zoom={1.95} autoRotate={false} allowManualRotate={false} initialYRotation={0} accessory={selectedAccessory} />
         </View>
 
@@ -356,7 +360,8 @@ const styles = StyleSheet.create({
   fireBadge: { flexDirection: 'row', gap: 4, alignItems: 'center', backgroundColor: '#FFF0ED', paddingHorizontal: 10, paddingVertical: 8, borderRadius: 14 },
   fireBadgeIcon: { fontSize: 14 },
   fireBadgeText: { color: '#F27B59', fontWeight: '800', fontSize: 13 },
-  previewBox: { alignItems: 'center', justifyContent: 'center', paddingVertical: 8, backgroundColor: '#F3EFFD', borderRadius: 20 },
+  previewBox: { alignItems: 'center', justifyContent: 'center', paddingVertical: 8, backgroundColor: '#F3EFFD', borderRadius: 20, position: 'relative' },
+  arButtonWrap: { position: 'absolute', right: 10, top: 10, zIndex: 2 },
   progressRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 },
   progressLabel: { color: '#8A97A9', fontSize: 14, fontWeight: '700' },
   progressValue: { color: colors.textStrong, fontSize: 14, fontWeight: '800' },

@@ -1,4 +1,166 @@
--- 05_routine_and_shop_functions.sql
+-- Auto migration for premium, usernames, and multi-child routine assignments.
+
+alter table public.families add column if not exists plan_tier text not null default 'basic';
+alter table public.families drop constraint if exists families_plan_tier_check;
+alter table public.families add constraint families_plan_tier_check check (plan_tier in ('basic', 'premium'));
+
+alter table public.child_profiles add column if not exists username text;
+update public.child_profiles
+set username = coalesce(nullif(username, ''), lower(regexp_replace(display_name, '\s+', '', 'g')))
+where username is null or username = '';
+alter table public.child_profiles alter column username set not null;
+create unique index if not exists child_profiles_family_username_unique on public.child_profiles (family_id, username);
+
+create table if not exists public.routine_assignments (
+  id uuid primary key default gen_random_uuid(),
+  routine_id uuid not null references public.routines(id) on delete cascade,
+  child_id uuid not null references public.child_profiles(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  unique (routine_id, child_id)
+);
+
+alter table public.routine_assignments enable row level security;
+
+drop policy if exists routine_assignments_select on public.routine_assignments;
+create policy routine_assignments_select on public.routine_assignments
+for select using (
+  exists (
+    select 1 from public.routines r
+    where r.id = routine_assignments.routine_id
+      and public.is_family_member(r.family_id)
+  )
+);
+
+drop policy if exists routine_assignments_write on public.routine_assignments;
+create policy routine_assignments_write on public.routine_assignments
+for all using (
+  exists (
+    select 1 from public.routines r
+    where r.id = routine_assignments.routine_id
+      and public.has_family_write_access(r.family_id)
+  )
+)
+with check (
+  exists (
+    select 1 from public.routines r
+    where r.id = routine_assignments.routine_id
+      and public.has_family_write_access(r.family_id)
+  )
+);
+
+drop function if exists public.create_child_profile_from_invite(text, text, int);
+create or replace function public.create_child_profile_from_invite(
+  p_code text,
+  p_username text,
+  p_display_name text,
+  p_birth_year int default null
+)
+returns table(id uuid, username text, display_name text)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_family_id uuid;
+  v_plan_tier text := 'basic';
+begin
+  if p_code is null or btrim(p_code) = '' then
+    raise exception 'Ongeldige code';
+  end if;
+
+  if p_display_name is null or btrim(p_display_name) = '' then
+    raise exception 'Kies een monsternaam';
+  end if;
+
+  if p_username is null or btrim(p_username) = '' then
+    raise exception 'Kies een gebruikersnaam';
+  end if;
+
+  select ti.family_id
+    into v_family_id
+  from public.team_invites ti
+  where ti.code = p_code
+  limit 1;
+
+  if v_family_id is null then
+    raise exception 'Code is verlopen of ongeldig';
+  end if;
+
+  select coalesce(f.plan_tier, 'basic')
+    into v_plan_tier
+  from public.families f
+  where f.id = v_family_id;
+
+  if v_plan_tier <> 'premium'
+    and exists (
+      select 1
+      from public.child_profiles cp
+      where cp.family_id = v_family_id
+      limit 1
+    ) then
+    raise exception 'Basis account: maximaal 1 kind per gezin';
+  end if;
+
+  if exists (
+    select 1
+    from public.child_profiles cp
+    where cp.family_id = v_family_id
+      and lower(cp.username) = lower(btrim(p_username))
+    limit 1
+  ) then
+    raise exception 'Deze gebruikersnaam bestaat al in dit gezin';
+  end if;
+
+  return query
+  insert into public.child_profiles (family_id, username, display_name, birth_year)
+  values (v_family_id, lower(btrim(p_username)), btrim(p_display_name), p_birth_year)
+  returning child_profiles.id, child_profiles.username, child_profiles.display_name;
+end;
+$$;
+
+drop function if exists public.get_child_limit_status_for_invite_code(text);
+create or replace function public.get_child_limit_status_for_invite_code(p_code text)
+returns table(
+  plan_tier text,
+  child_count int,
+  limit_reached boolean
+)
+language sql
+security definer
+set search_path = public
+as $$
+  select
+    coalesce(f.plan_tier, 'basic') as plan_tier,
+    coalesce(count(cp.id), 0)::int as child_count,
+    case
+      when coalesce(f.plan_tier, 'basic') = 'premium' then false
+      else coalesce(count(cp.id), 0) >= 1
+    end as limit_reached
+  from public.team_invites ti
+  join public.families f on f.id = ti.family_id
+  left join public.child_profiles cp on cp.family_id = f.id
+  where ti.code = p_code
+  group by f.plan_tier;
+$$;
+
+drop function if exists public.find_child_profile_by_invite_code(text, text);
+create or replace function public.find_child_profile_by_invite_code(
+  p_code text,
+  p_username text
+)
+returns table(id uuid, username text, display_name text)
+language sql
+security definer
+set search_path = public
+as $$
+  select cp.id, cp.username, cp.display_name
+  from public.team_invites ti
+  join public.child_profiles cp on cp.family_id = ti.family_id
+  where ti.code = p_code
+    and lower(cp.username) = lower(p_username)
+  order by cp.created_at desc
+  limit 1;
+$$;
 
 create or replace function public.get_today_routine_tasks_for_child(
   p_child_id uuid
@@ -237,108 +399,4 @@ begin
     coalesce(v_new_balance, 0),
     v_streak_days;
 end;
-$$;
-
-drop function if exists public.get_child_shop_state(uuid);
-create or replace function public.get_child_shop_state(
-  p_child_id uuid
-)
-returns table(
-  coin_balance int,
-  streak_days int,
-  owned_accessories text[]
-)
-language sql
-security definer
-set search_path = public
-as $$
-  select
-    cp.coin_balance,
-    cp.streak_days,
-    coalesce(array_agg(ca.accessory_key) filter (where ca.accessory_key is not null), '{}')::text[] as owned_accessories
-  from public.child_profiles cp
-  left join public.child_accessories ca on ca.child_id = cp.id
-  where cp.id = p_child_id
-  group by cp.id, cp.coin_balance, cp.streak_days;
-$$;
-
-create or replace function public.buy_child_accessory(
-  p_child_id uuid,
-  p_accessory_key text,
-  p_cost int
-)
-returns table(
-  success boolean,
-  message text,
-  new_balance int
-)
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-  v_balance int;
-begin
-  if p_accessory_key not in ('sunglasses','hoodie','crown','bowtie','flower','wand','patch','neon_glasses','chef_hat','space_helmet','laser_blade','super_cape','disco_crown','cyber_visor','heart_glasses','ice_hat','dragon_crown','golden_scepter','galaxy_suit','leaf_wreath','star_patch') then
-    return query select false, 'Ongeldig accessoire', 0;
-    return;
-  end if;
-
-  select cp.coin_balance into v_balance from public.child_profiles cp where cp.id = p_child_id;
-  if v_balance is null then
-    return query select false, 'Kindprofiel niet gevonden', 0;
-    return;
-  end if;
-
-  if exists (select 1 from public.child_accessories ca where ca.child_id = p_child_id and ca.accessory_key = p_accessory_key) then
-    return query select true, 'Al in bezit', v_balance;
-    return;
-  end if;
-
-  if v_balance < p_cost then
-    return query select false, 'Niet genoeg munten', v_balance;
-    return;
-  end if;
-
-  update public.child_profiles cp
-  set coin_balance = cp.coin_balance - p_cost
-  where cp.id = p_child_id
-  returning cp.coin_balance into v_balance;
-
-  insert into public.child_accessories (child_id, accessory_key)
-  values (p_child_id, p_accessory_key);
-
-  return query select true, 'Gekocht', v_balance;
-end;
-$$;
-
-drop function if exists public.get_child_achievement_stats(uuid);
-create or replace function public.get_child_achievement_stats(
-  p_child_id uuid
-)
-returns table(
-  total_completions int,
-  streak_days int
-)
-language sql
-security definer
-set search_path = public
-as $$
-  select
-    coalesce(
-      (
-        select count(*)
-        from public.task_completions tc
-        where tc.child_id = p_child_id
-      ),
-      0
-    )::int as total_completions,
-    coalesce(
-      (
-        select cp.streak_days
-        from public.child_profiles cp
-        where cp.id = p_child_id
-      ),
-      0
-    )::int as streak_days;
 $$;
