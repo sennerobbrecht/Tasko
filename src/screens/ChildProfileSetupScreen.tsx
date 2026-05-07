@@ -4,11 +4,11 @@ import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, Te
 import colors from '../theme/colors';
 
 import { useEffect, useState } from 'react';
-import { createChildFromInvite, familyHasChildForInviteCode } from '../services/families';
+import { familyHasChildForInviteCode } from '../services/families';
 
 type ChildProfileSetupScreenProps = {
   onBack?: () => void;
-  onContinue?: () => void;
+  onContinue?: (username: string) => void;
   inviteCode?: string | null;
 };
 
@@ -16,6 +16,7 @@ export default function ChildProfileSetupScreen({ onBack, onContinue, inviteCode
   const [username, setUsername] = useState('');
   const [creating, setCreating] = useState(false);
   const [hasExistingChild, setHasExistingChild] = useState(false);
+  const [planTier, setPlanTier] = useState<'basic' | 'premium'>('basic');
   const [loadingChildLimit, setLoadingChildLimit] = useState(true);
 
   useEffect(() => {
@@ -27,17 +28,22 @@ export default function ChildProfileSetupScreen({ onBack, onContinue, inviteCode
       if (!inviteCode) {
         if (mounted) {
           setHasExistingChild(false);
+          setPlanTier('basic');
           setLoadingChildLimit(false);
         }
         return;
       }
 
-      const { hasChild, error } = await familyHasChildForInviteCode(inviteCode);
+      const { hasChild, planTier: nextPlanTier, limitReached, error } = await familyHasChildForInviteCode(inviteCode);
       if (!mounted) {
         return;
       }
 
       setHasExistingChild(error ? false : hasChild);
+      setPlanTier(error ? 'basic' : nextPlanTier);
+      if (!error) {
+        setHasExistingChild(limitReached);
+      }
       setLoadingChildLimit(false);
     };
 
@@ -90,8 +96,8 @@ export default function ChildProfileSetupScreen({ onBack, onContinue, inviteCode
 
         {hasExistingChild ? (
           <View style={styles.limitBox}>
-            <Text style={styles.limitTitle}>Dit gezin heeft al een kind</Text>
-            <Text style={styles.limitText}>Je kunt maximaal 1 kind per gezin toevoegen. Verwijder eerst het bestaande kind of gebruik een ander gezin.</Text>
+            <Text style={styles.limitTitle}>Basis limiet bereikt</Text>
+            <Text style={styles.limitText}>Dit gezin gebruikt BASIS en heeft al 1 kind. Ontgrendel Premium voor onbeperkte kinderen.</Text>
           </View>
         ) : null}
 
@@ -100,7 +106,7 @@ export default function ChildProfileSetupScreen({ onBack, onContinue, inviteCode
           disabled={creating || loadingChildLimit || hasExistingChild}
           onPress={async () => {
             if (hasExistingChild) {
-              Alert.alert('Niet mogelijk', 'Dit gezin heeft al een kind. Er kan maximaal 1 kind per gezin worden toegevoegd.');
+              Alert.alert('Niet mogelijk', 'Dit gezin heeft in BASIS maximaal 1 kind. Ontgrendel Premium om extra kinderen toe te voegen.');
               return;
             }
             if (!inviteCode) {
@@ -112,17 +118,14 @@ export default function ChildProfileSetupScreen({ onBack, onContinue, inviteCode
               return;
             }
             setCreating(true);
-            const { data, error } = await createChildFromInvite(inviteCode, username.trim());
             setCreating(false);
-            if (error) {
-              Alert.alert('Fout', error.message || 'Kon kind niet aanmaken.');
-              return;
-            }
-            onContinue?.();
+            onContinue?.(username.trim());
           }}
           style={[styles.primaryButton, (creating || loadingChildLimit || hasExistingChild) && styles.primaryButtonDisabled]}
         >
-          <Text style={styles.primaryText}>{loadingChildLimit ? 'Controleren...' : creating ? 'Bezig…' : hasExistingChild ? 'Kind is al toegevoegd' : 'Ga verder'}</Text>
+          <Text style={styles.primaryText}>
+            {loadingChildLimit ? 'Controleren...' : creating ? 'Bezig…' : hasExistingChild ? 'Premium nodig' : planTier === 'premium' ? 'Ga verder (Premium)' : 'Ga verder'}
+          </Text>
         </TouchableOpacity>
       </ScrollView>
 

@@ -11,6 +11,8 @@ import { PremiumPlanCard } from '../components/premium/PremiumPlanCard';
 
 type PremiumScreenProps = {
   onBack?: () => void;
+  isPremium?: boolean;
+  onUnlockPremium?: () => void;
 };
 
 const BENEFITS = [
@@ -20,7 +22,7 @@ const BENEFITS = [
   'Prioritaire klantenservice',
 ];
 
-export default function PremiumScreen({ onBack }: PremiumScreenProps) {
+export default function PremiumScreen({ onBack, isPremium = false, onUnlockPremium }: PremiumScreenProps) {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('yearly');
 
   return (
@@ -36,9 +38,19 @@ export default function PremiumScreen({ onBack }: PremiumScreenProps) {
 
         <PremiumPlanCard billingCycle={billingCycle} />
 
-        <Pressable style={styles.startButton}>
+        <Pressable
+          style={[styles.startButton, isPremium && styles.startButtonUnlocked]}
+          onPress={() => {
+            onUnlockPremium?.();
+            onBack?.();
+          }}
+        >
           <Text style={styles.startButtonText}>
-            {billingCycle === 'yearly' ? '👑 Start Premium Jaarlijks' : '👑 Start Premium Maandelijks'}
+            {isPremium
+              ? '✅ Premium is ontgrendeld'
+              : billingCycle === 'yearly'
+                ? '👑 Start Premium Jaarlijks'
+                : '👑 Start Premium Maandelijks'}
           </Text>
         </Pressable>
 
@@ -54,6 +66,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#F6FBFC' },
   content: { paddingHorizontal: 20, paddingTop: 40, paddingBottom: 32 },
   startButton: { marginTop: 20, minHeight: 64, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: '#58C9D7' },
+  startButtonUnlocked: { backgroundColor: '#35B88E' },
   startButtonText: { color: colors.white, fontSize: 19, fontWeight: '900' },
   note: { marginTop: 12, fontSize: 13, lineHeight: 20, color: '#95A3B0', textAlign: 'center' },
 });

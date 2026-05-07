@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 export type Family = {
   id: string;
   name: string;
+  plan_tier: 'basic' | 'premium';
 };
 
 export async function getCurrentFamily(): Promise<{ family: Family | null; error: Error | null }> {
@@ -15,7 +16,7 @@ export async function getCurrentFamily(): Promise<{ family: Family | null; error
 
   const { data: ownedFamilies, error: ownedError } = await supabase
     .from('families')
-    .select('id,name')
+    .select('id,name,plan_tier')
     .eq('owner_user_id', userId)
     .limit(1);
 
@@ -45,7 +46,7 @@ export async function getCurrentFamily(): Promise<{ family: Family | null; error
   const firstMembership = memberRows[0] as { family_id: string };
   const { data: family, error: familyError } = await supabase
     .from('families')
-    .select('id,name')
+    .select('id,name,plan_tier')
     .eq('id', firstMembership.family_id)
     .single();
 
@@ -92,7 +93,7 @@ export async function ensureFamilyForCurrentUser(defaultFamilyName = 'Mijn Gezin
   // Fetch the created family
   const { data: createdFamily, error: fetchError } = await supabase
     .from('families')
-    .select('id,name')
+    .select('id,name,plan_tier')
     .eq('id', result.family_id)
     .single();
 
@@ -101,6 +102,30 @@ export async function ensureFamilyForCurrentUser(defaultFamilyName = 'Mijn Gezin
   }
 
   return { error: null, family: createdFamily as Family };
+}
+
+export async function upgradeCurrentFamilyToPremium() {
+  const { family, error: familyError } = await getCurrentFamily();
+  if (familyError) {
+    return { data: null, error: familyError };
+  }
+
+  if (!family) {
+    return { data: null, error: new Error('Geen gezin gevonden.') };
+  }
+
+  const { data, error } = await supabase
+    .from('families')
+    .update({ plan_tier: 'premium' })
+    .eq('id', family.id)
+    .select('id,name,plan_tier')
+    .single();
+
+  if (error) {
+    return { data: null, error };
+  }
+
+  return { data: data as Family, error: null };
 }
 
 export async function getFamilyChildren(familyId?: string) {
@@ -117,7 +142,7 @@ export async function getFamilyChildren(familyId?: string) {
     targetFamilyId = current.family.id;
   }
 
-  const { data, error } = await supabase.from('child_profiles').select('id,display_name,avatar_seed,birth_year').eq('family_id', targetFamilyId);
+  const { data, error } = await supabase.from('child_profiles').select('id,username,display_name,avatar_seed,birth_year').eq('family_id', targetFamilyId);
   return { data, error };
 }
 
@@ -168,9 +193,10 @@ export async function acceptTeamInvite(code: string) {
   return { error: null, success: true };
 }
 
-export async function createChildFromInvite(code: string, displayName: string, birthYear?: number) {
+export async function createChildFromInvite(code: string, username: string, displayName: string, birthYear?: number) {
   const { data, error } = await supabase.rpc('create_child_profile_from_invite', {
     p_code: code,
+    p_username: username,
     p_display_name: displayName,
     p_birth_year: birthYear ?? null,
   });
@@ -183,24 +209,24 @@ export async function createChildFromInvite(code: string, displayName: string, b
     return { error: new Error('Kon kind niet aanmaken.'), data: null };
   }
 
-  return { error: null, data: data[0] as { id: string; display_name: string } };
+  return { error: null, data: data[0] as { id: string; username: string; display_name: string } };
 }
 
-export async function loginChildWithCodeAndName(code: string, displayName: string) {
+export async function loginChildWithCodeAndName(code: string, username: string) {
   const trimmedCode = code.trim();
-  const trimmedName = displayName.trim();
+  const trimmedUsername = username.trim();
 
   if (!trimmedCode) {
     return { error: new Error('Vul de gezinscode in.'), data: null };
   }
 
-  if (!trimmedName) {
+  if (!trimmedUsername) {
     return { error: new Error('Vul je gebruikersnaam in.'), data: null };
   }
 
   const { data, error } = await supabase.rpc('find_child_profile_by_invite_code', {
     p_code: trimmedCode,
-    p_display_name: trimmedName,
+    p_username: trimmedUsername,
   });
 
   if (error) {
@@ -211,25 +237,30 @@ export async function loginChildWithCodeAndName(code: string, displayName: strin
     return { error: new Error('Geen kindprofiel gevonden met deze code en gebruikersnaam.'), data: null };
   }
 
-  return { error: null, data: data[0] as { id: string; display_name: string } };
+  return { error: null, data: data[0] as { id: string; username: string; display_name: string } };
 }
 
 export async function familyHasChildForInviteCode(code: string) {
   const trimmedCode = code.trim();
 
   if (!trimmedCode) {
-    return { error: new Error('Vul de gezinscode in.'), hasChild: false };
+    return { error: new Error('Vul de gezinscode in.'), hasChild: false, planTier: 'basic' as const, limitReached: false };
   }
 
-  const { data, error } = await supabase.rpc('has_child_profile_for_invite_code', {
+  const { data, error } = await supabase.rpc('get_child_limit_status_for_invite_code', {
     p_code: trimmedCode,
   });
 
   if (error) {
-    return { error, hasChild: false };
+    return { error, hasChild: false, planTier: 'basic' as const, limitReached: false };
   }
 
-  return { error: null, hasChild: Boolean(data) };
+  const firstRow = Array.isArray(data) ? data[0] : data;
+  const planTier = (firstRow?.plan_tier === 'premium' ? 'premium' : 'basic') as 'basic' | 'premium';
+  const childCount = Number(firstRow?.child_count ?? 0);
+  const limitReached = Boolean(firstRow?.limit_reached ?? false);
+
+  return { error: null, hasChild: childCount > 0, planTier, limitReached };
 }
 
 export async function removeCurrentFamilyChild() {

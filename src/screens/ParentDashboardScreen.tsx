@@ -23,6 +23,7 @@ type ParentDashboardScreenProps = {
   onLogout?: () => void;
   onOpenPremium?: () => void;
   initialTab?: ParentTab;
+  isPremium?: boolean;
 };
 
 type ParentTab = 'home' | 'insights' | 'planner' | 'profile';
@@ -42,6 +43,14 @@ const MOOD_TO_EMOJI: Record<MoodKey, string> = {
   sad: '😢',
 };
 
+const MOOD_TO_LABEL: Record<MoodKey, string> = {
+  happy: 'blij',
+  content: 'tevreden',
+  neutral: 'neutraal',
+  stressed: 'gestrest',
+  sad: 'verdrietig',
+};
+
 const TEMPLATES = [
   { id: 'school-week', title: 'School Week', subtitle: 'Perfecte routine voor schooldagen' },
   { id: 'weekend-routine', title: 'Weekend Routine', subtitle: 'Ontspannen en toch structuur' },
@@ -50,7 +59,7 @@ const TEMPLATES = [
   { id: 'verjaardag', title: 'Verjaardagsdag', subtitle: 'Speciale routine voor feestjes' },
 ];
 
-export default function ParentDashboardScreen({ currentUser, onLogout, onOpenPremium, initialTab = 'home' }: ParentDashboardScreenProps) {
+export default function ParentDashboardScreen({ currentUser, onLogout, onOpenPremium, initialTab = 'home', isPremium = false }: ParentDashboardScreenProps) {
   const [activeTab, setActiveTab] = useState<ParentTab>(initialTab);
 
   useEffect(() => {
@@ -95,7 +104,7 @@ export default function ParentDashboardScreen({ currentUser, onLogout, onOpenPre
   const [weekCompletions, setWeekCompletions] = useState(0);
   const [streakDays, setStreakDays] = useState(0);
   const [completionsLoading, setCompletionsLoading] = useState(true);
-  const [weekMoodByDay, setWeekMoodByDay] = useState<Record<string, string>>({});
+  const [weekMoodByDay, setWeekMoodByDay] = useState<Record<string, MoodKey>>({});
 
   const selectedTemplate = useMemo(
     () => TEMPLATES.find((template) => template.id === selectedTemplateId) ?? TEMPLATES[0],
@@ -127,14 +136,12 @@ export default function ParentDashboardScreen({ currentUser, onLogout, onOpenPre
   const displayName = dashboardUser?.name?.trim() || 'Ouder';
   const displayEmail = dashboardUser?.email || '—';
   const hasChildInFamily = children.length >= 1;
+  const todayMoodKey = weekMoodByDay[new Date().toISOString().slice(0, 10)];
+  const todayMoodEmoji = todayMoodKey ? MOOD_TO_EMOJI[todayMoodKey] : '—';
+  const todayMoodLabel = todayMoodKey ? MOOD_TO_LABEL[todayMoodKey] : 'nog niet ingevuld';
 
   const handleInviteToTeam = () => {
-    if (hasChildInFamily) {
-      onOpenPremium?.();
-      return;
-    }
-
-    setShowInviteScreen(true);
+    onOpenPremium?.();
   };
 
   async function handleRemoveChild() {
@@ -307,11 +314,12 @@ export default function ParentDashboardScreen({ currentUser, onLogout, onOpenPre
         return;
       }
 
-      const byDay: Record<string, string> = {};
+      const byDay: Record<string, MoodKey> = {};
       data.forEach((entry) => {
         const dayKey = new Date(entry.created_at).toISOString().slice(0, 10);
-        if (!byDay[dayKey]) {
-          byDay[dayKey] = MOOD_TO_EMOJI[entry.mood as MoodKey] ?? '—';
+        const mood = entry.mood as MoodKey;
+        if (!byDay[dayKey] && mood in MOOD_TO_EMOJI) {
+          byDay[dayKey] = mood;
         }
       });
       setWeekMoodByDay(byDay);
@@ -741,7 +749,13 @@ export default function ParentDashboardScreen({ currentUser, onLogout, onOpenPre
               ))
             )}
 
-            <Text style={styles.limitWarning}>{hasChildInFamily ? 'Je kunt maximaal 1 kind per gezin toevoegen.' : 'Je kunt nu een kind toevoegen aan dit gezin.'}</Text>
+            <Text style={styles.limitWarning}>
+              {isPremium
+                ? 'Premium actief: je kunt meerdere kinderen toevoegen aan dit gezin.'
+                : hasChildInFamily
+                  ? 'Basis account: maximaal 1 kind per gezin.'
+                  : 'Je kunt nu 1 kind toevoegen. Ontgrendel Premium voor meerdere kinderen.'}
+            </Text>
           </View>
 
           <View style={styles.card}>
@@ -945,11 +959,12 @@ export default function ParentDashboardScreen({ currentUser, onLogout, onOpenPre
 
                   return (
                     <View key={day} style={styles.emojiPill}>
-                      <Text>{weekMoodByDay[key] ?? '—'}</Text>
+                      <Text>{weekMoodByDay[key] ? MOOD_TO_EMOJI[weekMoodByDay[key]] : '—'}</Text>
                     </View>
                   );
                 })}
               </View>
+              <Text style={styles.todayMoodText}>Vandaag voelt je kind zich: {todayMoodEmoji} {todayMoodLabel}</Text>
 
               <View style={styles.chartShell}>
                 <View style={[styles.chartBar, { height: 46 }]} />
@@ -1052,7 +1067,7 @@ export default function ParentDashboardScreen({ currentUser, onLogout, onOpenPre
             <View style={styles.card}>
               <Text style={styles.cardTitle}>{currentUser?.name || 'Mijn Account'}</Text>
               <Text style={styles.subtleText}>{currentUser?.email || 'email@example.com'}</Text>
-              <Text style={styles.inlineTag}>BASIS</Text>
+              <Text style={styles.inlineTag}>{isPremium ? 'PREMIUM' : 'BASIS'}</Text>
             </View>
 
             <View style={styles.card}>
@@ -1494,6 +1509,11 @@ const styles = StyleSheet.create({
     borderColor: '#E1EDF1',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  todayMoodText: {
+    color: '#6E7C8D',
+    fontSize: 13,
+    fontWeight: '700',
   },
   chartShell: {
     borderRadius: 14,

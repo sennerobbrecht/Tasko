@@ -7,9 +7,14 @@ create table if not exists public.families (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   owner_user_id uuid not null references auth.users(id) on delete cascade,
+  plan_tier text not null default 'basic' check (plan_tier in ('basic', 'premium')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.families add column if not exists plan_tier text not null default 'basic';
+alter table public.families drop constraint if exists families_plan_tier_check;
+alter table public.families add constraint families_plan_tier_check check (plan_tier in ('basic', 'premium'));
 
 create table if not exists public.family_members (
   id uuid primary key default gen_random_uuid(),
@@ -23,6 +28,7 @@ create table if not exists public.family_members (
 create table if not exists public.child_profiles (
   id uuid primary key default gen_random_uuid(),
   family_id uuid not null references public.families(id) on delete cascade,
+  username text not null,
   display_name text not null,
   avatar_seed text,
   coin_balance int not null default 0,
@@ -34,6 +40,12 @@ create table if not exists public.child_profiles (
 
 alter table public.child_profiles add column if not exists coin_balance int not null default 0;
 alter table public.child_profiles add column if not exists streak_days int not null default 0;
+alter table public.child_profiles add column if not exists username text;
+update public.child_profiles
+set username = coalesce(nullif(username, ''), lower(regexp_replace(display_name, '\s+', '', 'g')))
+where username is null or username = '';
+alter table public.child_profiles alter column username set not null;
+create unique index if not exists child_profiles_family_username_unique on public.child_profiles (family_id, username);
 
 create table if not exists public.routines (
   id uuid primary key default gen_random_uuid(),

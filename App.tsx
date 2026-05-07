@@ -19,7 +19,7 @@ import ChildMoodScreen from './src/screens/ChildMoodScreen';
 import ParentDashboardScreen from './src/screens/ParentDashboardScreen';
 import PremiumScreen from './src/screens/PremiumScreen';
 import { getSessionUser, signInParent, signOutCurrentUser, signUpParent } from './src/services/auth';
-import { createChildFromInvite, ensureFamilyForCurrentUser, loginChildWithCodeAndName } from './src/services/families';
+import { createChildFromInvite, ensureFamilyForCurrentUser, getCurrentFamily, loginChildWithCodeAndName, upgradeCurrentFamilyToPremium } from './src/services/families';
 import { MONSTER_COLORS, type AccessoryKey } from './src/components/MonsterPreview';
 import { buyAccessoryForChild, getChildShopState } from './src/services/economy';
 import { flushOfflineQueue, getOfflineQueueCount } from './src/services/offlineQueue';
@@ -55,6 +55,7 @@ export default function App() {
 	const [isAuthBootstrapDone, setIsAuthBootstrapDone] = useState(false);
 	const [currentUser, setCurrentUser] = useState<User | null>(null);
 	const [pendingInviteCode, setPendingInviteCode] = useState<string | null>(null);
+	const [pendingChildUsername, setPendingChildUsername] = useState<string | null>(null);
 	const [childProfileId, setChildProfileId] = useState<string | null>(null);
 	const [monsterName, setMonsterName] = useState('');
 	const [selectedAccessory, setSelectedAccessory] = useState<AccessoryKey | undefined>(undefined);
@@ -71,6 +72,7 @@ export default function App() {
 	const [focusIsRunning, setFocusIsRunning] = useState(false);
 	const [parentDashboardTab, setParentDashboardTab] = useState<'home' | 'insights' | 'planner' | 'profile'>('home');
 	const [pendingSyncCount, setPendingSyncCount] = useState(0);
+	const [isPremium, setIsPremium] = useState(false);
 
 	useEffect(() => {
 		LogBox.ignoreLogs([
@@ -215,6 +217,10 @@ export default function App() {
 					name: fullName,
 				});
 				await ensureFamilyForCurrentUser();
+				const { family } = await getCurrentFamily();
+				if (isMounted) {
+					setIsPremium(family?.plan_tier === 'premium');
+				}
 				if (isMounted) {
 					setScreen('parentDashboard');
 				}
@@ -393,6 +399,15 @@ export default function App() {
 	if (screen === 'premium') {
 		return (
 			<PremiumScreen
+				isPremium={isPremium}
+				onUnlockPremium={async () => {
+					const { data, error } = await upgradeCurrentFamilyToPremium();
+					if (error) {
+						Alert.alert('Premium mislukt', error.message || 'Kon premium niet activeren.');
+						return;
+					}
+					setIsPremium((data?.plan_tier ?? 'basic') === 'premium');
+				}}
 				onBack={() => {
 					setParentDashboardTab('profile');
 					setScreen('parentDashboard');
@@ -424,6 +439,8 @@ export default function App() {
 					}
 
 					await ensureFamilyForCurrentUser();
+					const { family } = await getCurrentFamily();
+					setIsPremium(family?.plan_tier === 'premium');
 					setParentDashboardTab('home');
 					setScreen('parentDashboard');
 					return null;
@@ -456,6 +473,7 @@ export default function App() {
 				onBack={() => setScreen('welcome')}
 				onContinue={(code?: string) => {
 					setPendingInviteCode(code ?? null);
+					setPendingChildUsername(null);
 					setScreen('childProfileSetup');
 				}}
 				onLoginChild={async ({ code, username }) => {
@@ -466,6 +484,7 @@ export default function App() {
 
 					setMonsterName(data?.display_name || username.trim());
 					setChildProfileId(data?.id || null);
+					setPendingChildUsername(null);
 					setSelectedAccessory(undefined);
 					setOwnedAccessories([]);
 					setSelectedMonsterColor(MONSTER_COLORS[0]);
@@ -480,7 +499,10 @@ export default function App() {
 		return (
 			<ChildProfileSetupScreen
 				onBack={() => setScreen('childFamilyCode')}
-				onContinue={() => setScreen('childHowItWorks')}
+				onContinue={(username) => {
+					setPendingChildUsername(username);
+					setScreen('childHowItWorks');
+				}}
 				inviteCode={pendingInviteCode}
 			/>
 		);
@@ -518,12 +540,17 @@ export default function App() {
 
 					const finalize = async () => {
 						if (pendingInviteCode) {
-							const { data, error } = await createChildFromInvite(pendingInviteCode, trimmedName);
+							if (!pendingChildUsername) {
+								Alert.alert('Gebruikersnaam nodig', 'Kies eerst een gebruikersnaam.');
+								return;
+							}
+							const { data, error } = await createChildFromInvite(pendingInviteCode, pendingChildUsername, trimmedName);
 							if (error) {
 								Alert.alert('Opslaan mislukt', error.message || 'Kon het kindprofiel niet aanmaken.');
 								return;
 							}
 							setChildProfileId(data?.id ?? null);
+							setPendingChildUsername(null);
 						}
 
 						setMonsterName(trimmedName);
@@ -580,6 +607,8 @@ export default function App() {
 					if (familyError) {
 						return `Kon gezin niet aanmaken: ${familyError.message}`;
 					}
+					const { family } = await getCurrentFamily();
+					setIsPremium(family?.plan_tier === 'premium');
 
 					setParentDashboardTab('home');
 					setScreen('parentDashboard');
@@ -592,6 +621,7 @@ export default function App() {
 	if (screen === 'parentDashboard') {
 		return <ParentDashboardScreen 
 			currentUser={currentUser}
+			isPremium={isPremium}
 			initialTab={parentDashboardTab}
 			onOpenPremium={() => {
 				setParentDashboardTab('profile');
@@ -600,6 +630,7 @@ export default function App() {
 			onLogout={async () => {
 				await signOutCurrentUser();
 				setCurrentUser(null);
+				setIsPremium(false);
 				setParentDashboardTab('home');
 				setScreen('welcome');
 			}}
