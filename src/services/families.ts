@@ -121,7 +121,7 @@ export async function getFamilyChildren(familyId?: string) {
   return { data, error };
 }
 
-export async function createTeamInviteForCurrentFamily({ role = 'parent', expiresInDays = 7, code: providedCode }: { role?: string; expiresInDays?: number; code?: string } = {}) {
+export async function createTeamInviteForCurrentFamily({ role = 'parent', code: providedCode }: { role?: string; code?: string } = {}) {
   const { family, error: famErr } = await getCurrentFamily();
   if (famErr) return { data: null, error: famErr };
   if (!family) return { data: null, error: new Error('Geen gezin gevonden voor huidige gebruiker') };
@@ -132,7 +132,7 @@ export async function createTeamInviteForCurrentFamily({ role = 'parent', expire
     for (let i = 0; i < 10; i++) code += codeChars[Math.floor(Math.random() * codeChars.length)];
   }
 
-  const expires_at = new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1000).toISOString();
+  const expires_at = '9999-12-31T23:59:59.000Z';
 
   const { data, error } = await supabase
     .from('team_invites')
@@ -151,7 +151,6 @@ export async function acceptTeamInvite(code: string) {
 
   const invite = Array.isArray(inviteRows) ? inviteRows[0] as any : (inviteRows as any);
   if (invite.used_at) return { error: new Error('Uitnodiging is al gebruikt'), success: false };
-  if (new Date(invite.expires_at) < new Date()) return { error: new Error('Uitnodiging is verlopen'), success: false };
 
   const { data: authData, error: authErr } = await supabase.auth.getUser();
   if (authErr || !authData.user) return { error: authErr ?? new Error('Geen ingelogde gebruiker'), success: false };

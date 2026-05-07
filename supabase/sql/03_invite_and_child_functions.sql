@@ -36,7 +36,6 @@ begin
     into v_family_id
   from public.team_invites ti
   where ti.code = p_code
-    and ti.expires_at > now()
   limit 1;
 
   if v_family_id is null then
@@ -72,7 +71,6 @@ as $$
   from public.team_invites ti
   join public.child_profiles cp on cp.family_id = ti.family_id
   where ti.code = p_code
-    and ti.expires_at > now()
     and lower(cp.display_name) = lower(p_display_name)
   order by cp.created_at desc
   limit 1;
@@ -89,6 +87,5 @@ as $$
     from public.team_invites ti
     join public.child_profiles cp on cp.family_id = ti.family_id
     where ti.code = p_code
-      and ti.expires_at > now()
   );
 $$;
