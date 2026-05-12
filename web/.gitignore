@@ -1,0 +1,4 @@
+.next/
+node_modules/
+# Gekopieerd uit ../assets/3d-models bij build/dev
+public/models/*.glb

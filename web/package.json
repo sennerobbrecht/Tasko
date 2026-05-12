@@ -1,0 +1,24 @@
+{
+  "name": "tasko-web",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "prebuild": "node scripts/copy-models.mjs",
+    "dev": "node scripts/copy-models.mjs && next dev --turbopack",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@google/model-viewer": "^4.0.0",
+    "next": "^15.1.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "typescript": "^5.7.0"
+  }
+}
