@@ -7,12 +7,12 @@ export type Family = {
 };
 
 export async function getCurrentFamily(): Promise<{ family: Family | null; error: Error | null }> {
-  const { data: authData, error: authError } = await supabase.auth.getUser();
-  if (authError || !authData.user) {
+  const { data: authData, error: authError } = await supabase.auth.getSession();
+  if (authError || !authData.session?.user) {
     return { family: null, error: authError ?? new Error('Geen ingelogde gebruiker gevonden.') };
   }
 
-  const userId = authData.user.id;
+  const userId = authData.session.user.id;
 
   const { data: ownedFamilies, error: ownedError } = await supabase
     .from('families')

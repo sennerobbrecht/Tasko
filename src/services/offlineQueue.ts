@@ -132,6 +132,10 @@ async function executeMutation(mutation: OfflineMutation): Promise<'done' | 'ret
 
 export async function flushOfflineQueue() {
   if (isFlushing) return;
+
+  const { data: sessionData } = await supabase.auth.getSession();
+  if (!sessionData.session) return;
+
   isFlushing = true;
   try {
     const queue = await readQueue();

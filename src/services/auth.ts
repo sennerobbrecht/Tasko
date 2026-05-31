@@ -68,13 +68,14 @@ export async function signOutCurrentUser(): Promise<AuthErrorResult> {
   return { error };
 }
 
+/** Lokale sessie (AsyncStorage) — geen verplichte netwerkcall bij app-start in Expo Go */
 export async function getSessionUser() {
-  const { data, error } = await supabase.auth.getUser();
-  if (error) {
+  const { data, error } = await supabase.auth.getSession();
+  if (error || !data.session?.user) {
     return null;
   }
 
-  return data.user;
+  return data.session.user;
 }
 
 export async function requestPasswordReset(email: string) {

@@ -4,10 +4,14 @@
   "version": "0.1.0",
   "scripts": {
     "prebuild": "node scripts/copy-models.mjs",
-    "dev": "node scripts/copy-models.mjs && next dev --turbopack",
+    "predev": "node scripts/copy-models.mjs",
+    "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
+  },
+  "engines": {
+    "node": ">=20.9.0"
   },
   "dependencies": {
     "@google/model-viewer": "^4.0.0",

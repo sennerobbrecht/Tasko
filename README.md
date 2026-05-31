@@ -47,3 +47,14 @@ npx expo start
 
 - Never put your Postgres password or service role key in the mobile app.
 - The app only uses the publishable key.
+
+## WebAR op Vercel
+
+De **browser-WebAR**-site staat in [`web/`](web/). Die deploy je apart op Vercel (niet de Expo-app).
+
+1. Push naar GitHub.
+2. [Vercel → New Project](https://vercel.com/new) → import repo.
+3. **Root Directory:** `web`
+4. Deploy (geen env-vars nodig voor de demo).
+
+Volledige stappen: **[web/README.md](web/README.md)**.

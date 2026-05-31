@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import { Alert, AppState, LogBox } from 'react-native';
+import { ActivityIndicator, Alert, AppState, LogBox, View } from 'react-native';
 import ParentAccountScreen from './src/screens/ParentAccountScreen';
 import WelcomeScreen from './src/screens/WelcomeScreen';
 import LoginScreen from './src/screens/LoginScreen';
@@ -204,30 +204,34 @@ export default function App() {
 		let isMounted = true;
 
 		const bootstrap = async () => {
-			const user = await getSessionUser();
-			if (!isMounted) {
-				return;
-			}
-
-			if (user) {
-				const fullName = user.user_metadata?.full_name || '';
-				setCurrentUser({
-					id: user.id,
-					email: user.email || '',
-					name: fullName,
-				});
-				await ensureFamilyForCurrentUser();
-				const { family } = await getCurrentFamily();
-				if (isMounted) {
-					setIsPremium(family?.plan_tier === 'premium');
+			try {
+				const user = await getSessionUser();
+				if (!isMounted) {
+					return;
 				}
-				if (isMounted) {
-					setScreen('parentDashboard');
-				}
-			}
 
-			if (isMounted) {
-				setIsAuthBootstrapDone(true);
+				if (user) {
+					const fullName = user.user_metadata?.full_name || '';
+					setCurrentUser({
+						id: user.id,
+						email: user.email || '',
+						name: fullName,
+					});
+					await ensureFamilyForCurrentUser();
+					const { family } = await getCurrentFamily();
+					if (isMounted) {
+						setIsPremium(family?.plan_tier === 'premium');
+					}
+					if (isMounted) {
+						setScreen('parentDashboard');
+					}
+				}
+			} catch {
+				// Supabase offline / project gepauzeerd — toch welkomstscherm tonen
+			} finally {
+				if (isMounted) {
+					setIsAuthBootstrapDone(true);
+				}
 			}
 		};
 
@@ -264,7 +268,11 @@ export default function App() {
 	}, []);
 
 	if (!isAuthBootstrapDone) {
-		return null;
+		return (
+			<View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
+				<ActivityIndicator size="large" color="#6ee7b7" />
+			</View>
+		);
 	}
 
 	if (screen === 'childHome') {
