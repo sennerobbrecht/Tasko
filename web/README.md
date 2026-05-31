@@ -1,6 +1,8 @@
-# Tasko Web (Vercel)
+# Tasko WebAR-demo (Vercel)
 
-Next.js-site voor **WebAR** (`Tasko.glb` via `@google/model-viewer`). Los van de Expo-app in de repo-root.
+> **Volledige Tasko-app (login, Supabase, kind/ouder)?** Deploy de **repo-root** met env-vars — zie **[VERCEL.md](../VERCEL.md)** in de projectroot.
+
+Deze map is een **aparte** Next.js-site alleen voor **WebAR** (`Tasko.glb` via `@google/model-viewer`). Geen Supabase nodig.
 
 ## Lokaal
 

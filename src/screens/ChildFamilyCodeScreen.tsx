@@ -20,6 +20,14 @@ export default function ChildFamilyCodeScreen({ onBack, onContinue, onLoginChild
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   const openCamera = async () => {
+    if (Platform.OS === 'web') {
+      Alert.alert(
+        'QR scannen',
+        'In de browser kun je de uitnodigingscode niet scannen. Vul de code hieronder in die je ouder deelt.',
+      );
+      return;
+    }
+
     if (!permission?.granted) {
       const result = await requestPermission();
 

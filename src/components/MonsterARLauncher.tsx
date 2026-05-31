@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import Constants from 'expo-constants';
 
@@ -15,10 +15,11 @@ type MonsterARLauncherProps = {
 export default function MonsterARLauncher({ color, accessory }: MonsterARLauncherProps) {
   const [permission, requestPermission] = useCameraPermissions();
   const [visible, setVisible] = useState(false);
+  const isWeb = Platform.OS === 'web';
   const isExpoGo = Constants.appOwnership === 'expo';
 
   const openAr = async () => {
-    if (isExpoGo) {
+    if (!isWeb && isExpoGo) {
       Alert.alert(
         'AR Dev Build nodig',
         'Voor echte Pokemon GO AR heb je een development build nodig. In Expo Go krijg je een vereenvoudigde AR-preview.',
@@ -47,9 +48,16 @@ export default function MonsterARLauncher({ color, accessory }: MonsterARLaunche
             </Pressable>
           </View>
 
-          {isExpoGo ? (
+          {isWeb || isExpoGo ? (
             <>
-              <CameraView style={StyleSheet.absoluteFill} facing="back" />
+              {!isWeb ? <CameraView style={StyleSheet.absoluteFill} facing="back" /> : null}
+              {!isWeb ? null : (
+                <View style={styles.webBackdrop}>
+                  <Text style={styles.webHint}>
+                    3D-preview in de browser. Voor AR op je telefoon: gebruik de mobiele app (Expo Go) of een native build.
+                  </Text>
+                </View>
+              )}
               <View style={styles.monsterWrap} pointerEvents="none">
                 <MonsterModel3D
                   color={color}
@@ -133,5 +141,18 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 40,
     alignItems: 'center',
+  },
+  webBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#0b0f14',
+    justifyContent: 'flex-start',
+    paddingTop: 72,
+    paddingHorizontal: 20,
+  },
+  webHint: {
+    color: colors.white,
+    textAlign: 'center',
+    lineHeight: 20,
+    opacity: 0.85,
   },
 });
