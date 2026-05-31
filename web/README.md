@@ -25,13 +25,13 @@ Open http://localhost:3000. AR test je op een **telefoon** via je LAN-IP (bijv. 
 
 1. **Push** je code naar GitHub (of koppel je bestaande repo).
 2. Ga naar [vercel.com/new](https://vercel.com/new) → **Import** je repository.
-3. Bij **Root Directory** klik **Edit** en zet: **`web`** (belangrijk — niet de repo-root).
-4. Framework: **Next.js** (automatisch).
-5. Build settings (meestal automatisch uit `vercel.json`):
-   - Install: `npm install`
-   - Build: `npm run build`
-6. **Environment Variables**: voor deze WebAR-demo **niets** nodig. (Supabase hoort bij de Expo-app in `.env.local` in de root.)
+3. Bij **Root Directory** klik **Edit** en zet: **`web`**.
+4. Bij **Build & Development** → **Output Directory**: **leeg laten** (geen `dist` — anders krijg je een Next.js/dist-fout).
+5. Framework: **Next.js** (automatisch).
+6. **Environment Variables**: voor deze demo **niets** nodig.
 7. Klik **Deploy**.
+
+> Deploy je de **volledige app**? Gebruik dan de **repo-root** als Root Directory — zie [VERCEL.md](../VERCEL.md), niet deze map.
 
 Na ~1–2 minuten krijg je een URL zoals `https://tasko-xxx.vercel.app`.
 

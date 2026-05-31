@@ -74,6 +74,27 @@ npx serve dist
 
 ## Problemen
 
+### `Next.js output directory "dist" was not found at .../web/dist`
+
+Je **Root Directory** en **Output Directory** passen niet bij elkaar.
+
+| Wat je wilt | Root Directory | Output Directory (Vercel dashboard) |
+|-------------|----------------|-------------------------------------|
+| **Volledige Tasko-app** | `.` (repo-root, leeg laten) | `dist` (of leeg — staat in `vercel.json`) |
+| **Alleen WebAR (`web/`)** | `web` | **leeg** (overschrijving uitzetten) |
+
+**Fix voor de volledige app (meest waarschijnlijk jouw bedoeling):**
+
+1. Vercel → **Settings** → **General** → **Root Directory** → zet op **`.`** (repository root), **niet** `web`.
+2. **Build & Development** → **Output Directory**: leeg laten of `dist` (Expo export).
+3. **Redeploy**.
+
+**Fix als je alleen de WebAR-demo wilt:**
+
+1. Root Directory = `web`
+2. Output Directory in het dashboard **wissen** (geen `dist` — Next.js gebruikt `.next` intern)
+3. Redeploy
+
 - **Network request failed** → Supabase-project gepauzeerd; herstel in dashboard of check env-vars op Vercel.
 - **Missing env var** → variabelen ontbreken bij build; redeploy na toevoegen.
 - **Lege pagina** → controleer browserconsole; vaak ontbrekende env bij build.
