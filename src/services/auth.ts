@@ -1,4 +1,14 @@
-import { supabase } from '../lib/supabase';
+import { isTransientNetworkError, supabase } from '../lib/supabase';
+
+function formatAuthError(error: Error | null): Error | null {
+  if (!error) return null;
+  if (isTransientNetworkError(error)) {
+    return new Error(
+      'Geen verbinding met de server. Controleer je internet, of wacht even als het Supabase-project net herstart is (gratis tier pauzeert na inactiviteit).',
+    );
+  }
+  return error;
+}
 
 type AuthErrorResult = {
   error: Error | null;
@@ -60,7 +70,7 @@ export async function signUpParent(name: string, email: string, password: string
   });
 
   const needsEmailConfirmation = !!data.user && !data.session;
-  return { error, needsEmailConfirmation, user: data.user };
+  return { error: formatAuthError(error), needsEmailConfirmation, user: data.user };
 }
 
 export async function signOutCurrentUser(): Promise<AuthErrorResult> {

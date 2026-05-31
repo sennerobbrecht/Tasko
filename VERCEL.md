@@ -74,6 +74,24 @@ npx serve dist
 
 ## Problemen
 
+### `Failed to fetch` bij registreren / inloggen
+
+Meestal één van deze drie:
+
+1. **Supabase-project is gepauzeerd (INACTIVE)**  
+   Gratis projecten slapen na ~7 dagen zonder gebruik.  
+   → [Supabase Dashboard](https://supabase.com/dashboard) → je project → **Restore project**.  
+   Wacht 1–2 minuten tot status **Active** is, probeer opnieuw op [tasko-lmat.vercel.app](https://tasko-lmat.vercel.app/).
+
+2. **Environment variables ontbreken bij de Vercel-build**  
+   Keys moeten in Vercel staan **vóór** je deployt, daarna **Redeploy**.  
+   Zonder keys kan de gebouwde app geen verbinding maken.
+
+3. **Auth URL’s in Supabase**  
+   Dashboard → **Authentication** → **URL configuration**:
+   - Site URL: `https://tasko-lmat.vercel.app`
+   - Redirect URLs: `https://tasko-lmat.vercel.app/**`
+
 ### `Next.js output directory "dist" was not found at .../web/dist`
 
 Je **Root Directory** en **Output Directory** passen niet bij elkaar.

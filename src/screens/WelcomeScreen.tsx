@@ -1,5 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import colors from '../theme/colors';
 
@@ -11,7 +11,12 @@ type WelcomeScreenProps = {
 
 export default function WelcomeScreen({ onLogin, onRegisterChild, onRegisterParent }: WelcomeScreenProps) {
   return (
-    <View style={styles.screen}>
+    <ScrollView
+      style={styles.screen}
+      contentContainerStyle={styles.scrollContent}
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+    >
       <View style={styles.backgroundBlobTop} />
       <View style={styles.backgroundBlobBottom} />
 
@@ -58,7 +63,7 @@ export default function WelcomeScreen({ onLogin, onRegisterChild, onRegisterPare
       </View>
 
       <StatusBar style="dark" />
-    </View>
+    </ScrollView>
   );
 }
 
@@ -67,8 +72,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  scrollContent: {
+    flexGrow: 1,
+    minHeight: '100%',
+  },
   content: {
-    flex: 1,
+    flexGrow: 1,
     paddingHorizontal: 24,
     paddingTop: 48,
     paddingBottom: 28,

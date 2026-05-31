@@ -1,9 +1,10 @@
 import 'react-native-url-polyfill/auto';
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { createClient } from '@supabase/supabase-js';
+
+import { supabaseAuthStorage } from './authStorage';
 
 function readEnv(name: 'EXPO_PUBLIC_SUPABASE_URL' | 'EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY'): string {
   const fromProcess = process.env[name]?.trim();
@@ -36,7 +37,7 @@ export function isTransientNetworkError(error: unknown): boolean {
 
 export const supabase = createClient(supabaseUrl, supabasePublishableKey, {
   auth: {
-    storage: AsyncStorage,
+    storage: supabaseAuthStorage,
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: Platform.OS === 'web',
