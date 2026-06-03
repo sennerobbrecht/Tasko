@@ -3,6 +3,7 @@ import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-nativ
 import { useState } from 'react';
 
 import { MonsterModel3D } from '../components/MonsterModel3D';
+import ScreenScroll from '../components/ScreenScroll';
 import colors from '../theme/colors';
 
 type ChildMonsterSelectionScreenProps = {
@@ -15,7 +16,7 @@ export default function ChildMonsterSelectionScreen({ onBack, onContinue }: Chil
 
   return (
     <View style={styles.screen}>
-      <View style={styles.content}>
+      <ScreenScroll contentContainerStyle={styles.content}>
         <TouchableOpacity activeOpacity={0.7} hitSlop={16} onPress={onBack} style={styles.backButton}>
           <Text style={styles.backArrow}>←</Text>
         </TouchableOpacity>
@@ -46,7 +47,7 @@ export default function ChildMonsterSelectionScreen({ onBack, onContinue }: Chil
         <TouchableOpacity activeOpacity={0.9} onPress={() => onContinue?.(monsterName)} style={styles.primaryButton}>
           <Text style={styles.primaryText}>Ga verder</Text>
         </TouchableOpacity>
-      </View>
+      </ScreenScroll>
 
       <StatusBar style="dark" />
     </View>
@@ -59,7 +60,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   content: {
-    flex: 1,
     paddingTop: 40,
     paddingHorizontal: 24,
     paddingBottom: 24,

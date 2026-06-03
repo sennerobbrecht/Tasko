@@ -1,7 +1,6 @@
 import { useState } from 'react';
-import { Alert, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import Constants from 'expo-constants';
 
 import { type AccessoryKey } from './MonsterPreview';
 import { MonsterModel3D } from './MonsterModel3D';
@@ -12,19 +11,15 @@ type MonsterARLauncherProps = {
   accessory?: AccessoryKey;
 };
 
+/**
+ * AR in Expo Go en native builds: live camera + 3D-monster (geen Viro/dev build nodig).
+ * Web gebruikt MonsterARLauncher.web.tsx (model-viewer).
+ */
 export default function MonsterARLauncher({ color, accessory }: MonsterARLauncherProps) {
   const [permission, requestPermission] = useCameraPermissions();
   const [visible, setVisible] = useState(false);
-  const isWeb = Platform.OS === 'web';
-  const isExpoGo = Constants.appOwnership === 'expo';
 
   const openAr = async () => {
-    if (!isWeb && isExpoGo) {
-      Alert.alert(
-        'AR Dev Build nodig',
-        'Voor echte Pokemon GO AR heb je een development build nodig. In Expo Go krijg je een vereenvoudigde AR-preview.',
-      );
-    }
     if (!permission?.granted) {
       const result = await requestPermission();
       if (!result.granted) {
@@ -48,55 +43,29 @@ export default function MonsterARLauncher({ color, accessory }: MonsterARLaunche
             </Pressable>
           </View>
 
-          {isWeb || isExpoGo ? (
-            <>
-              {!isWeb ? <CameraView style={StyleSheet.absoluteFill} facing="back" /> : null}
-              {!isWeb ? null : (
-                <View style={styles.webBackdrop}>
-                  <Text style={styles.webHint}>
-                    3D-preview in de browser. Voor AR op je telefoon: gebruik de mobiele app (Expo Go) of een native build.
-                  </Text>
-                </View>
-              )}
-              <View style={styles.monsterWrap} pointerEvents="none">
-                <MonsterModel3D
-                  color={color}
-                  accessory={accessory}
-                  size={300}
-                  zoom={2.35}
-                  autoRotate={false}
-                  allowManualRotate={false}
-                  initialYRotation={0}
-                  transparentBackground
-                />
-              </View>
-            </>
-          ) : (
-            <NativeArMonsterView />
-          )}
+          <CameraView style={StyleSheet.absoluteFill} facing="back" />
+          <View style={styles.monsterWrap} pointerEvents="none">
+            <MonsterModel3D
+              color={color}
+              accessory={accessory}
+              size={300}
+              zoom={2.35}
+              autoRotate={false}
+              allowManualRotate={false}
+              initialYRotation={0}
+              transparentBackground
+            />
+          </View>
+
+          {Platform.OS !== 'web' ? (
+            <View style={styles.tipBar} pointerEvents="none">
+              <Text style={styles.tipText}>Richt op de kamer — je monster staat in beeld</Text>
+            </View>
+          ) : null}
         </View>
       </Modal>
     </>
   );
-}
-
-function NativeArMonsterView() {
-  // Dynamic require avoids Expo Go runtime crashes.
-  const { ViroARSceneNavigator, ViroARScene, ViroAmbientLight, Viro3DObject } = require('@reactvision/react-viro');
-
-  const MonsterScene = () => (
-    <ViroARScene>
-      <ViroAmbientLight color="#ffffff" intensity={900} />
-      <Viro3DObject
-        source={require('../../assets/3d-models/Tasko.glb')}
-        position={[0, -0.4, -1.2]}
-        scale={[0.22, 0.22, 0.22]}
-        type="GLB"
-      />
-    </ViroARScene>
-  );
-
-  return <ViroARSceneNavigator autofocus initialScene={{ scene: MonsterScene }} style={StyleSheet.absoluteFill} />;
 }
 
 const styles = StyleSheet.create({
@@ -124,6 +93,7 @@ const styles = StyleSheet.create({
     paddingTop: 54,
     paddingHorizontal: 16,
     alignItems: 'flex-end',
+    zIndex: 2,
   },
   closeButton: {
     borderRadius: 12,
@@ -139,20 +109,24 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: 40,
+    bottom: 56,
     alignItems: 'center',
+    zIndex: 1,
   },
-  webBackdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#0b0f14',
-    justifyContent: 'flex-start',
-    paddingTop: 72,
-    paddingHorizontal: 20,
+  tipBar: {
+    position: 'absolute',
+    bottom: 16,
+    left: 16,
+    right: 16,
+    zIndex: 2,
+    backgroundColor: 'rgba(15, 22, 30, 0.7)',
+    borderRadius: 12,
+    padding: 10,
   },
-  webHint: {
+  tipText: {
     color: colors.white,
     textAlign: 'center',
-    lineHeight: 20,
-    opacity: 0.85,
+    fontSize: 13,
+    fontWeight: '600',
   },
 });

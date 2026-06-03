@@ -1,6 +1,7 @@
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+import ScreenScroll from '../components/ScreenScroll';
 import colors from '../theme/colors';
 
 type ChildRewardScreenProps = {
@@ -11,7 +12,7 @@ type ChildRewardScreenProps = {
 export default function ChildRewardScreen({ onBack, onContinue }: ChildRewardScreenProps) {
   return (
     <View style={styles.screen}>
-      <View style={styles.content}>
+      <ScreenScroll contentContainerStyle={styles.content}>
         <TouchableOpacity activeOpacity={0.7} hitSlop={16} onPress={onBack} style={styles.backButton}>
           <Text style={styles.backArrow}>←</Text>
         </TouchableOpacity>
@@ -61,7 +62,7 @@ export default function ChildRewardScreen({ onBack, onContinue }: ChildRewardScr
         <TouchableOpacity activeOpacity={0.9} onPress={onContinue} style={styles.primaryButton}>
           <Text style={styles.primaryText}>Ga verder</Text>
         </TouchableOpacity>
-      </View>
+      </ScreenScroll>
 
       <StatusBar style="dark" />
     </View>
@@ -74,7 +75,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   content: {
-    flex: 1,
     paddingTop: 40,
     paddingHorizontal: 24,
     paddingBottom: 28,

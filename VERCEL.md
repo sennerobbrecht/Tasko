@@ -74,6 +74,27 @@ npx serve dist
 
 ## Problemen
 
+### `NET::ERR_CERT_COMMON_NAME_INVALID` (“verbinding is niet privé”)
+
+Het certificaat hoort bij **`*.vercel.app`**, niet bij een andere hostnaam. De fout krijg je bijna altijd als de URL **niet exact** klopt.
+
+**Gebruik dit (kopieer-plak):**
+
+```
+https://tasko-lmat.vercel.app
+```
+
+**Niet gebruiken:**
+
+- `https://www.tasko-lmat.vercel.app` — **`www` werkt niet** (certificaat past niet → deze foutcode)
+- `http://tasko-lmat.vercel.app` (zonder s)
+- een **eigen domein** (bijv. `tasko.be`) tenzij in Vercel → Domains SSL op **Ready** staat
+- een oudere / andere Vercel-URL dan je huidige project
+
+**Check:** lang indrukken op de link → **URL kopiëren** → moet exact `https://tasko-lmat.vercel.app/...` zijn, zonder `www`.
+
+Werkt het op **mobiele data** met die URL nog steeds? → Instellingen → **Private DNS uit** (Android) of andere filter/VPN.
+
 ### `Failed to fetch` bij registreren / inloggen
 
 Meestal één van deze drie:
