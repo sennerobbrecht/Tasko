@@ -22,29 +22,20 @@ type LoadedModelProps = {
   rotationRef: { current: number };
 };
 
-function applyStrongTint(material: THREE.Material, color: string) {
+/** Kleurtint bovenop GLB-textures — texture blijft zichtbaar (geen plat blauw vlak) */
+function applyMonsterTint(material: THREE.Material, color: string) {
   const tint = new THREE.Color(color);
-  const vividTint = tint.clone().offsetHSL(0, 0.08, -0.02);
 
   if ('color' in material && material.color instanceof THREE.Color) {
-    material.color = vividTint;
+    material.color.set(tint);
   }
 
   if ('emissive' in material && material.emissive instanceof THREE.Color) {
-    material.emissive = vividTint.clone().multiplyScalar(0.5);
+    material.emissive.copy(tint).multiplyScalar(0.12);
   }
 
   if ('emissiveIntensity' in material) {
-    (material as THREE.MeshStandardMaterial).emissiveIntensity = 0.8;
-  }
-
-  if ('toneMapped' in material) {
-    (material as THREE.MeshStandardMaterial).toneMapped = false;
-  }
-
-  if ('map' in material) {
-    (material as THREE.MeshStandardMaterial).map = null;
-    material.needsUpdate = true;
+    (material as THREE.MeshStandardMaterial).emissiveIntensity = 0.25;
   }
 }
 
@@ -58,12 +49,12 @@ function LoadedModel({ color, zoom, rotationRef }: LoadedModelProps) {
         const mesh = child as THREE.Mesh;
         if (mesh.material instanceof THREE.Material) {
           const material = mesh.material.clone();
-          applyStrongTint(material, color);
+          applyMonsterTint(material, color);
           mesh.material = material;
         } else if (Array.isArray(mesh.material)) {
           mesh.material = mesh.material.map((material) => {
             const clonedMaterial = material.clone();
-            applyStrongTint(clonedMaterial, color);
+            applyMonsterTint(clonedMaterial, color);
             return clonedMaterial;
           });
         }

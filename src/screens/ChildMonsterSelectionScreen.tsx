@@ -1,18 +1,25 @@
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useState } from 'react';
 
 import { MonsterModel3D } from '../components/MonsterModel3D';
+import { MONSTER_COLORS } from '../components/MonsterPreview';
 import ScreenScroll from '../components/ScreenScroll';
 import colors from '../theme/colors';
 
+export type ChildMonsterSelectionResult = {
+  name: string;
+  color: string;
+};
+
 type ChildMonsterSelectionScreenProps = {
   onBack?: () => void;
-  onContinue?: (monsterName: string) => void;
+  onContinue?: (result: ChildMonsterSelectionResult) => void;
 };
 
 export default function ChildMonsterSelectionScreen({ onBack, onContinue }: ChildMonsterSelectionScreenProps) {
   const [monsterName, setMonsterName] = useState('');
+  const [selectedColor, setSelectedColor] = useState<string>(MONSTER_COLORS[0]);
 
   return (
     <View style={styles.screen}>
@@ -24,7 +31,31 @@ export default function ChildMonsterSelectionScreen({ onBack, onContinue }: Chil
         <Text style={styles.title}>Jouw monstertje</Text>
 
         <View style={styles.monsterFrame}>
-          <MonsterModel3D color="#D6F7FF" size={230} autoRotate={false} allowManualRotate={false} initialYRotation={0} />
+          <MonsterModel3D
+            color={selectedColor}
+            size={230}
+            autoRotate={false}
+            allowManualRotate
+            initialYRotation={0}
+          />
+        </View>
+        <Text style={styles.rotateHint}>Sleep horizontaal om te draaien</Text>
+
+        <Text style={styles.sectionTitle}>Kies een kleur</Text>
+        <View style={styles.colorRow}>
+          {MONSTER_COLORS.map((color) => {
+            const active = color === selectedColor;
+            return (
+              <Pressable
+                key={color}
+                onPress={() => setSelectedColor(color)}
+                style={[styles.colorSwatch, { backgroundColor: color }, active && styles.colorSwatchActive]}
+                accessibilityRole="button"
+                accessibilityLabel={`Kleur ${color}`}
+                accessibilityState={{ selected: active }}
+              />
+            );
+          })}
         </View>
 
         <Text style={styles.sectionTitle}>Geef jouw monster een naam</Text>
@@ -44,7 +75,11 @@ export default function ChildMonsterSelectionScreen({ onBack, onContinue }: Chil
 
         <Text style={styles.helper}>{monsterName.length}/20 karakters</Text>
 
-        <TouchableOpacity activeOpacity={0.9} onPress={() => onContinue?.(monsterName)} style={styles.primaryButton}>
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPress={() => onContinue?.({ name: monsterName, color: selectedColor })}
+          style={styles.primaryButton}
+        >
           <Text style={styles.primaryText}>Ga verder</Text>
         </TouchableOpacity>
       </ScreenScroll>
@@ -89,12 +124,36 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minHeight: 248,
   },
+  rotateHint: {
+    textAlign: 'center',
+    marginTop: 8,
+    color: '#8A97A9',
+    fontSize: 14,
+  },
   sectionTitle: {
     textAlign: 'center',
     fontSize: 22,
     fontWeight: '900',
     color: colors.textStrong,
-    marginTop: 30,
+    marginTop: 24,
+  },
+  colorRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 12,
+    marginTop: 14,
+  },
+  colorSwatch: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  colorSwatchActive: {
+    borderColor: colors.primaryDark,
+    transform: [{ scale: 1.08 }],
   },
   inputShell: {
     marginTop: 18,

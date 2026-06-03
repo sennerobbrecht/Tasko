@@ -539,12 +539,14 @@ export default function App() {
 		return (
 			<ChildMonsterSelectionScreen
 				onBack={() => setScreen('childReward')}
-				onContinue={(name) => {
+				onContinue={({ name, color }) => {
 					const trimmedName = name.trim();
 					if (!trimmedName) {
 						Alert.alert('Naam nodig', 'Geef je monstertje eerst een naam.');
 						return;
 					}
+
+					setSelectedMonsterColor(color);
 
 					const finalize = async () => {
 						if (pendingInviteCode) {

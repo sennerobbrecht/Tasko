@@ -39,14 +39,14 @@ export default function MonsterARLauncher({ color, accessory }: MonsterARLaunche
         <View style={styles.screen}>
           {visible ? <CameraView style={styles.camera} facing="back" active /> : null}
 
-          <View style={styles.monsterWrap} pointerEvents="none">
+          <View style={styles.monsterWrap}>
             <MonsterModel3D
               color={color}
               accessory={accessory}
               size={300}
               zoom={2.35}
               autoRotate={false}
-              allowManualRotate={false}
+              allowManualRotate
               initialYRotation={0}
               transparentBackground
             />

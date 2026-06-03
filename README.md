@@ -47,6 +47,7 @@ npx expo start
 
 - Never put your Postgres password or service role key in the mobile app.
 - The app only uses the publishable key.
+- Overview: **[SECURITY.md](SECURITY.md)**
 
 ## Deploy op Vercel (volledige app)
 

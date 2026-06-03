@@ -103,7 +103,7 @@ export default function ChildRewardsShopScreen({
       <View style={styles.previewCard}>
         <Text style={styles.previewText}>Zo ziet {monsterName || 'je monstertje'} eruit met {selectedAccessoryName}</Text>
         <View style={styles.previewBox}>
-          <MonsterModel3D color={selectedMonsterColor} size={180} zoom={1.95} autoRotate={false} allowManualRotate={false} initialYRotation={0} accessory={selectedAccessory} />
+          <MonsterModel3D color={selectedMonsterColor} size={180} zoom={1.95} autoRotate={false} allowManualRotate initialYRotation={0} accessory={selectedAccessory} />
         </View>
       </View>
 
