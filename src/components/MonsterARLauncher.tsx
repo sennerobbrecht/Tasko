@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 
 import { type AccessoryKey } from './MonsterPreview';
@@ -12,8 +12,8 @@ type MonsterARLauncherProps = {
 };
 
 /**
- * AR in Expo Go en native builds: live camera + 3D-monster (geen Viro/dev build nodig).
- * Web gebruikt MonsterARLauncher.web.tsx (model-viewer).
+ * Live camera + 3D-monster (Expo Go, native én web/Vercel).
+ * Geen aparte dev build nodig.
  */
 export default function MonsterARLauncher({ color, accessory }: MonsterARLauncherProps) {
   const [permission, requestPermission] = useCameraPermissions();
@@ -37,13 +37,8 @@ export default function MonsterARLauncher({ color, accessory }: MonsterARLaunche
 
       <Modal visible={visible} animationType="slide" onRequestClose={() => setVisible(false)}>
         <View style={styles.screen}>
-          <View style={styles.header}>
-            <Pressable onPress={() => setVisible(false)} style={styles.closeButton}>
-              <Text style={styles.closeButtonText}>Sluiten</Text>
-            </Pressable>
-          </View>
+          {visible ? <CameraView style={styles.camera} facing="back" active /> : null}
 
-          <CameraView style={StyleSheet.absoluteFill} facing="back" />
           <View style={styles.monsterWrap} pointerEvents="none">
             <MonsterModel3D
               color={color}
@@ -57,11 +52,15 @@ export default function MonsterARLauncher({ color, accessory }: MonsterARLaunche
             />
           </View>
 
-          {Platform.OS !== 'web' ? (
-            <View style={styles.tipBar} pointerEvents="none">
-              <Text style={styles.tipText}>Richt op de kamer — je monster staat in beeld</Text>
-            </View>
-          ) : null}
+          <View style={styles.header} pointerEvents="box-none">
+            <Pressable onPress={() => setVisible(false)} style={styles.closeButton}>
+              <Text style={styles.closeButtonText}>Sluiten</Text>
+            </Pressable>
+          </View>
+
+          <View style={styles.tipBar} pointerEvents="none">
+            <Text style={styles.tipText}>Je ziet je kamer met je monster ervoor</Text>
+          </View>
         </View>
       </Modal>
     </>
@@ -89,11 +88,15 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#000',
   },
+  camera: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 0,
+  },
   header: {
-    paddingTop: 54,
-    paddingHorizontal: 16,
-    alignItems: 'flex-end',
-    zIndex: 2,
+    position: 'absolute',
+    top: 54,
+    right: 16,
+    zIndex: 3,
   },
   closeButton: {
     borderRadius: 12,
@@ -106,19 +109,18 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   monsterWrap: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 56,
+    ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
-    zIndex: 1,
+    justifyContent: 'flex-end',
+    paddingBottom: 56,
+    zIndex: 2,
   },
   tipBar: {
     position: 'absolute',
     bottom: 16,
     left: 16,
     right: 16,
-    zIndex: 2,
+    zIndex: 3,
     backgroundColor: 'rgba(15, 22, 30, 0.7)',
     borderRadius: 12,
     padding: 10,

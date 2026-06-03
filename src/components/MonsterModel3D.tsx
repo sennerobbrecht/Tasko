@@ -168,7 +168,15 @@ export function MonsterModel3D({
         transparentBackground && styles.shellTransparent,
       ]}
     >
-      <Canvas camera={{ position: [0, 0, 4.9], fov: 42 }} gl={{ alpha: true, antialias: true }}>
+      <Canvas
+        camera={{ position: [0, 0, 4.9], fov: 42 }}
+        gl={{ alpha: true, antialias: true }}
+        onCreated={({ gl, scene }) => {
+          gl.setClearColor(0, 0, 0, 0);
+          scene.background = null;
+        }}
+        style={transparentBackground ? styles.canvasTransparent : undefined}
+      >
         <ambientLight intensity={1.05} />
         <directionalLight position={[2, 2, 3]} intensity={1.2} />
         <directionalLight position={[-2, 1, -1]} intensity={0.5} />
@@ -208,6 +216,9 @@ const styles = StyleSheet.create({
   shellTransparent: {
     backgroundColor: 'transparent',
     borderRadius: 0,
+  },
+  canvasTransparent: {
+    backgroundColor: 'transparent',
   },
   accessoryOverlay: {
     position: 'absolute',
